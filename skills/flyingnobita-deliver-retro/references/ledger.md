@@ -1,0 +1,37 @@
+# Retro ledger
+
+The ledger is how one retro learns from the last: which findings recur, which
+fixes held, and how each gate and role profile performs over many runs. It
+lives beside the run records it cites, private and outside every checkout:
+`<state root>/retros/`, using the state root from [evidence](evidence.md). It
+covers the runs on this host. Create the directory with mode 0700 on first use.
+
+Write one file per retro, `<YYYYMMDD-HHMM>-<first run ID>.json`, through a
+temporary file and rename. Never store secrets, prompts or transcript excerpts;
+store pointers and counts.
+
+```json
+{
+  "schema": 1,
+  "created_at": "2026-10-28T09:00:00+08:00",
+  "runs": [{"run_id": "...", "repo": "/abs/repo", "host": "herdr", "route": "single"}],
+  "reworks": [{"run_id": "...", "kind": "plan-revision", "origin_stage": "plan", "origin_role": "planner", "minutes": 25}],
+  "checks": {"C1": "finding", "C2": "clean"},
+  "gates": {"red_check": {"caught": 0, "minutes": 4}, "review": {"caught": 2, "minutes": 30}, "qa": {"caught": 0, "minutes": 12}, "verify": {"caught": 1, "minutes": 6}},
+  "profiles": [{"role": "implementer", "host": "herdr", "harness": "codex", "model": "...", "effort": "medium", "attempts": 3, "reworks_originated": 2, "minutes": 90}],
+  "candidates": [{"id": "C1-1", "check": "C1", "title": "...", "severity": "rework", "fix_type": "skill-text", "owner_file": "references/pipeline.md", "measure": "...", "recurrence": 0, "status": "proposed", "commit": null}]
+}
+```
+
+Fill `route` with `single` or `graph`, and `host` with the selected adapter.
+The `...` values are placeholders; a real entry holds observed values or omits
+the field.
+
+Candidate `status` moves `proposed` to `accepted` or `declined` on the user's
+choice, then to `implemented` with its `commit`. A later retro sets `held` or
+`regressed` after checking the measure on runs that started after the commit.
+Edit only the status fields of a past entry; everything else is the record of
+what that retro saw.
+
+A trend needs runs, not retros: count each run once even when several retros
+read it.
