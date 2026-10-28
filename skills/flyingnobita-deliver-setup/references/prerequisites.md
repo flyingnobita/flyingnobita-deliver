@@ -8,9 +8,9 @@ fix; a declined fix stays in the report.
 A skill counts as installed when its `SKILL.md` exists in a skills directory
 the delivering harness reads (`~/.agents/skills`, `~/.claude/skills`,
 `~/.codex/skills`, or the target repo's `.agents/skills` / `.claude/skills`).
-Deliver loads the prefixed names below. An unprefixed install (`grilling`
-instead of `mattpocock-grilling`) is `degraded`: on a fleet host fix it with
-`npx-skills-prefix apply`.
+Matt Pocock skills are named as upstream (`grilling`, `tdd`). Where a name
+collides with a harness built-in, such as Claude Code's `code-review`, check
+that the installed `SKILL.md` comes from `mattpocock/skills`.
 
 **Fleet host** means this dotfiles fleet: skills come from
 `bootstrap/skill-seed.json` through `npx-skills-update`, apps from the
@@ -22,7 +22,7 @@ link for anyone else.
 | Component | Check | Fix |
 |---|---|---|
 | `flyingnobita-clean-commit` | skill installed | Fleet: `chezmoi apply` deploys it from `dot_agents/skills/`. No upstream; without it Deliver cannot commit, so a miss blocks |
-| Matt Pocock skills: `mattpocock-grilling`, `-tdd`, `-code-review`, `-pr`, `-diagnosing-bugs`, `-domain-modeling`, `-wizard`, `-writing-for-agents` | each installed | Fleet: `npx-skills-update`. Elsewhere: `npx skills add mattpocock/skills --skill <name> -g` from <https://github.com/mattpocock/skills>. A miss is `degraded`: Deliver runs the fallback in [dependencies](../../flyingnobita-deliver/references/dependencies.md) |
+| Matt Pocock skills: `grilling`, `tdd`, `code-review`, `pr`, `diagnosing-bugs`, `domain-modeling`, `wizard`, `writing-for-agents` | each installed | Fleet: `npx-skills-update`. Elsewhere: `npx skills add mattpocock/skills --skill <name> -g` from <https://github.com/mattpocock/skills>. A miss is `degraded`: Deliver runs the fallback in [dependencies](../../flyingnobita-deliver/references/dependencies.md) |
 | `git` | `git --version`; target repo has a remote default branch | Install git through the host's package manager |
 | `gh` | `gh auth status` succeeds for the account that will push | Fleet: in the package data file; `gh auth login`. <https://cli.github.com>. Needed to fork, push, open and merge PRs |
 | Python 3.11+ | `python3 -c 'import tomllib'` | Fleet: mise `python`. Needed by `deliver-runtime` and project TOML |
@@ -51,8 +51,8 @@ fix, and accept a no without follow-up.
 | Component | When to offer | Check | Fix |
 |---|---|---|---|
 | Herdr Dagr | Herdr host only | `herdr plugin list --json` shows `herdr-dagr` | Recommend only, and say it is entirely optional: a DAG viewer pane for agent work in Herdr. Deliver does not drive it or publish graphs to it. Install and use it from <https://github.com/aemrebarut/herdr-dagr>; the fleet installs it on North-Omarchy and MBP-M4 |
-| Planner extras: `mattpocock-research`, `-codebase-design`, `-prototype` | always | each installed | As the Matt Pocock row. Without them the planner works in plain terms |
-| Input producers: `mattpocock-to-spec`, `-to-tickets` | always | each installed | As the Matt Pocock row. Lets Deliver take a spec or ticket graph as input |
-| Tracker setup: `mattpocock-setup-matt-pocock-skills` | target repo lacks `## Agent skills` in `AGENTS.md` | skill installed; section present | Offer to run it; Deliver otherwise offers GitHub, a local file or none |
-| Follow-up skills: `mattpocock-wayfinder`, `flyingnobita-deliver-retro` (needs `mattpocock-retro`) | always | each installed | As the matching rows above |
+| Planner extras: `research`, `codebase-design`, `prototype` | always | each installed | As the Matt Pocock row. Without them the planner works in plain terms |
+| Input producers: `to-spec`, `to-tickets` | always | each installed | As the Matt Pocock row. Lets Deliver take a spec or ticket graph as input |
+| Tracker setup: `setup-matt-pocock-skills` | target repo lacks `## Agent skills` in `AGENTS.md` | skill installed; section present | Offer to run it; Deliver otherwise offers GitHub, a local file or none |
+| Follow-up skills: `wayfinder`, `flyingnobita-deliver-retro` (needs `retro`) | always | each installed | As the matching rows above |
 | Distinct reviewer harness | always | a second harness (`claude` or `codex`) is on `PATH` and authenticated | Install the other harness; a reviewer on the implementer's harness still works |

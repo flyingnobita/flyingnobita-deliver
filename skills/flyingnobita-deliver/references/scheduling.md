@@ -9,7 +9,7 @@ Read every ticket and its blocking edges. Reject missing blockers or cycles
 before dispatch. Identify human tickets, human steps embedded in agent tickets,
 and likely questions from vague acceptance criteria or always-ask areas.
 Settle the questions at grilling; split or front-load embedded human steps
-when needed. Load `mattpocock-wizard` for steps only the user can perform.
+when needed. Load `wizard` for steps only the user can perform.
 
 Offer a schedule only when human work exists:
 

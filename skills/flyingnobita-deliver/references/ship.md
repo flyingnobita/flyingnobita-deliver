@@ -13,7 +13,7 @@ below but stop after the verified PR head; retain the workspace and never merge.
 ## Both repo classes
 
 1. The work is already committed: rules and docs after the plan stop, the implementation and review fixes by the implementer role. Commit any remaining owned change with `flyingnobita-clean-commit`, which reads the repo's message style and changelog rules. Reference the issue in a footer when one exists (`Fixes #N`).
-2. Write the PR title and body with `mattpocock-pr`. Where the repo has a PR template, fill the template and fold the summary and evidence into it. Include the mention-in-PR review findings and any alternative the user asked to offer.
+2. Write the PR title and body with `pr`. Where the repo has a PR template, fill the template and fold the summary and evidence into it. Include the mention-in-PR review findings and any alternative the user asked to offer.
 
 ## Own repo
 

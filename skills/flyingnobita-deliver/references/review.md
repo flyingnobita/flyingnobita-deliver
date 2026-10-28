@@ -4,7 +4,7 @@ Shared by the delivery pipeline and standalone `flyingnobita-deliver-review`.
 Keep the fixed-point SHA immutable through every iteration. The review result
 is findings plus evidence; worker completion is not a clean-review verdict.
 
-1. Start a read-only reviewer with `mattpocock-code-review`, the fixed point,
+1. Start a read-only reviewer with `code-review`, the fixed point,
    approved brief/plan and source spec. Preserve its Standards and Spec axes.
    Ask it to save the findings outside disposable worktrees and identify the
    reviewed HEAD. The reviewer never edits code, commits or launches a fixer.

@@ -7,7 +7,7 @@ disable-model-invocation: true
 # Delivery retrospective
 
 The user has asked for a **retrospective** on delivery work. It extends
-`mattpocock-retro`, which reviews one agent's environment, with the layer a
+`retro`, which reviews one agent's environment, with the layer a
 multi-agent run adds: **coordination** (how the orchestrator ran its agents)
 and **role split** (whether each piece of work landed with the right role). You
 propose the smallest change to the delivery system that prevents each loss of
@@ -19,11 +19,11 @@ entries, and it edits skills or code only after the user picks candidates.
 
 ## Steps
 
-1. Load `mattpocock-retro` with the Skill tool. If the harness refuses it
-   because it is user-invoked, read `~/.agents/skills/mattpocock-retro/SKILL.md`
+1. Load `retro` with the Skill tool. If the harness refuses it
+   because it is user-invoked, read `~/.agents/skills/retro/SKILL.md`
    instead. Run its steps 1 to 3 on the orchestrator's session and the
    delivered repo; hold its candidates for step 7 here rather than presenting
-   them now. If neither load works, load `mattpocock-writing-for-agents` and
+   them now. If neither load works, load `writing-for-agents` and
    name the missing dependency in the report.
 
 2. Resolve the runs. Default to the run this session orchestrated; otherwise
@@ -47,7 +47,7 @@ entries, and it edits skills or code only after the user picks candidates.
    has an origin, or is marked unattributable with the reason.
 
 5. Run every check in [checks](references/checks.md) against the timeline and
-   reworks. These are the multi-agent checks `mattpocock-retro` lacks; a
+   reworks. These are the multi-agent checks `retro` lacks; a
    finding both cover is reported once, here. Done when every check ID has a
    finding or an explicit "clean, with evidence".
 
@@ -72,7 +72,7 @@ entries, and it edits skills or code only after the user picks candidates.
    3. **Profile**: a role's harness, model, effort or mode.
    4. **Project rule**: the delivered repo's `AGENTS.md` `## Delivery` section,
       `docs/agents/delivery.toml`, or a repo check from step 1.
-   5. **Dependency**: an upstream `mattpocock-*` skill; record the contract
+   5. **Dependency**: an upstream Matt Pocock skill; record the contract
       change in `references/dependencies.md`.
 
    | Behaviour | Owning file under `dot_agents/skills/flyingnobita-deliver/` |
@@ -104,7 +104,7 @@ entries, and it edits skills or code only after the user picks candidates.
    Give each candidate as: title; check ID; evidence (run ID, attempt or report
    path, timestamp or transcript line); origin; recurrence count; fix type and
    owning file with the proposed wording or check; measure. Merge the held
-   `mattpocock-retro` candidates into the same order, labelled by their
+   `retro` candidates into the same order, labelled by their
    category. Then give the trends from the ledger: recurring findings, fixes
    that held, and the gate yield and profile fit tables from checks R7 and R9.
    End with the clean checks in one line.

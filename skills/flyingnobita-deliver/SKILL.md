@@ -16,7 +16,7 @@ You turn the user's input into a confirmed **brief**, run role agents through a 
 3. any **scope change**: a finding that changes what is being built or why;
 4. the PR draft, for an **upstream repo** only.
 
-Work that needs steps only the user can perform (credentials, CI secrets, a third-party dashboard) is also a stop: load `mattpocock-wizard` to generate a guided script for those steps, and resume when the user reports them done.
+Work that needs steps only the user can perform (credentials, CI secrets, a third-party dashboard) is also a stop: load `wizard` to generate a guided script for those steps, and resume when the user reports them done.
 
 Run everything else to completion without asking. Ending your turn is how the user is notified, so end it only at a stop, at a blocker you cannot resolve, or with the final report.
 
@@ -61,9 +61,9 @@ Done when the workspace is ready, recorded as reused or created, and the baselin
 
 ## 3. Grilling stop
 
-Load `mattpocock-grilling` and grill the user on every open decision the brief leaves, at the depth intake set: for gaps-only depth, tell it to ask only what is missing or contradicted. For human steps or ticket graphs, read [references/scheduling.md](references/scheduling.md) and add its unresolved scheduling decisions. Add the setup questions and the QA offer (target host or environment, or skip) to its rounds.
+Load `grilling` and grill the user on every open decision the brief leaves, at the depth intake set: for gaps-only depth, tell it to ask only what is missing or contradicted. For human steps or ticket graphs, read [references/scheduling.md](references/scheduling.md) and add its unresolved scheduling decisions. Add the setup questions and the QA offer (target host or environment, or skip) to its rounds.
 
-Own repo: also load `mattpocock-domain-modeling`, so glossary terms and ADRs are written as decisions settle. Upstream repo: write no domain docs.
+Own repo: also load `domain-modeling`, so glossary terms and ADRs are written as decisions settle. Upstream repo: write no domain docs.
 
 Done when every open decision is settled and the user has confirmed the brief.
 
@@ -72,12 +72,12 @@ Done when every open decision is settled and the user has confirmed the brief.
 Start the planner role, read-only, with the brief and the decisions. Its plan must name:
 
 - the vertical **slices** of the work, in order;
-- the **seams**: the public interfaces the tests go through, each with a line on what it catches and what it misses (`mattpocock-tdd` tests only at seams the user confirmed);
+- the **seams**: the public interfaces the tests go through, each with a line on what it catches and what it misses (`tdd` tests only at seams the user confirmed);
 - the commands for the tests, the full suite and the linters.
 
 For a single unit with **independent, substantial** parts (separate modules, no shared seams), the planner may propose them as a ticket graph with blocking edges, justifying the split against its cost: a worktree, an implementer and a merge per ticket, and a whole-branch review. The user approves the split with the plan; small or interdependent work stays one unit.
 
-For a bug whose cause the input does not establish, the planner loads `mattpocock-diagnosing-bugs` and reproduces the bug before planning; a bug that does not reproduce is a scope change. The planner may also load `mattpocock-research` for external facts, `mattpocock-codebase-design` when the change moves a module interface, and `mattpocock-prototype` for a question code answers faster than discussion.
+For a bug whose cause the input does not establish, the planner loads `diagnosing-bugs` and reproduces the bug before planning; a bug that does not reproduce is a scope change. The planner may also load `research` for external facts, `codebase-design` when the change moves a module interface, and `prototype` for a question code answers faster than discussion.
 
 Read the plan yourself and check its claims against the code. Present the plan, its seams and what you verified.
 

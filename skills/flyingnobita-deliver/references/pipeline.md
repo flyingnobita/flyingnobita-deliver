@@ -1,6 +1,6 @@
 # Pipeline
 
-This follows Matt Pocock's implement workflow (`mattpocock-implement`, `mattpocock-implement-spec`) with the user's profiles: one implementer drives `mattpocock-tdd` at the seams approved at the plan stop, commits, and `mattpocock-code-review` reviews. Your own checks sit on top of it.
+This follows Matt Pocock's implement workflow (`implement`, `implement-spec`) with the user's profiles: one implementer drives `tdd` at the seams approved at the plan stop, commits, and `code-review` reviews. Your own checks sit on top of it.
 
 Roles and their profiles come from the adapter. Every role brief:
 
@@ -15,7 +15,7 @@ Verify each gate yourself in the work's workspace. A role's report tells you whe
 
 Start the implementer role. Its brief:
 
-- load `mattpocock-tdd` and work in vertical red-green slices, testing only at the seams listed in the approved plan; those seams are already confirmed with the user, so it starts without asking;
+- load `tdd` and work in vertical red-green slices, testing only at the seams listed in the approved plan; those seams are already confirmed with the user, so it starts without asking;
 - run single test files as it goes, then the full suite, linters and the repo's pre-commit hooks at the end;
 - commit its work on the branch with `flyingnobita-clean-commit`, and push nothing.
 
