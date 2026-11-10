@@ -33,8 +33,8 @@ and native identities. Paseo uses its native workspace/agent IDs and retains
 equivalent request/approval artifacts; it does not need Herdr's prompt API.
 
 `operation-intent` supports worktree-create, agent-start, worktree-remove,
-workspace-close, run-create, task-create and worker-release. Each needs a
-unique `operation_id` and exact `target` object. A successful write is required
+workspace-close, run-create, task-create, worker-release and
+opencode-session-create. Each needs a unique `operation_id` and exact `target` object. A successful write is required
 before mutation; `operation-result` records its observed result. Other native
 mutations use the selected adapter's durable request identity and saved evidence.
 `show` inspects state, and `checkpoint` records revalidated stage/caller evidence.

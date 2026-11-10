@@ -1,0 +1,5 @@
+# Publish the delivery suite from its own repository
+
+The delivery suite currently lives in dotfiles and carries fleet-specific assumptions. Its public source of truth will move to `flyingnobita/flyingnobita-deliver`, covering all four companion skills under MIT after provenance review, with GitHub owning issues and a linked Kaneo project providing the board. Public and fleet installs will use the same Skills CLI source, replacing dotfiles-managed copies only after installation verification and an idle-delivery check; this removes the long-term risk of maintaining two authoritative copies.
+
+Repository ownership and commit behavior must work for other users. The suite will follow repository commit rules with safe defaults, support an explicitly configured custom commit skill, and resolve both upstream dependency names and fleet-prefixed names. Existing Herdr, Paseo, and Orca integrations remain in scope for Linux/macOS, with minimal targeted verification and explicit limits on live coverage.

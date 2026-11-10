@@ -9,7 +9,7 @@ Read every ticket and its blocking edges. Reject missing blockers or cycles
 before dispatch. Identify human tickets, human steps embedded in agent tickets,
 and likely questions from vague acceptance criteria or always-ask areas.
 Settle the questions at grilling; split or front-load embedded human steps
-when needed. Load `wizard` for steps only the user can perform.
+when needed. Load `wizard` (or `mattpocock-wizard`) for steps only the user can perform.
 
 Offer a schedule only when human work exists:
 
@@ -33,7 +33,7 @@ when that is the tracker. Runtime evidence stays outside disposable worktrees.
 
 Only the orchestrator changes statuses. Workers may append comments to their
 own ticket. Claim a ticket before creating its worktree or dispatching it;
-commit the claim first when tracked, using `flyingnobita-clean-commit`.
+commit the claim first when tracked, following repository commit rules (or a configured custom commit skill).
 Each worker branches from the current integration tip. Record actual branch,
 workspace and task identities instead of assuming a naming convention.
 

@@ -42,7 +42,7 @@ Before creating a native Task, compile `deliver-runtime orca-task` with a
     "target": "Exact workspace, fixed point and files",
     "change": "Concrete result required",
     "constraints": "Read-only review; local-only results",
-    "ownership": "Findings artifact only; no edits or fixer launch",
+    "ownership": "Findings artifact only; no edits or repairs",
     "acceptance": "Separate Standards/Spec findings at the named HEAD",
     "profile": {"harness":"antigravity","model":"gemini-3.8-flash-medium","effort":"medium"},
     "report_path": "/private/run-directory/review.md",

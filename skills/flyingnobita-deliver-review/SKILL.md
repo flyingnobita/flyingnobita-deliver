@@ -26,8 +26,8 @@ the adapter. Preserve a target checked out elsewhere and never switch or edit
 the user's checkout. The reviewer reads the diff from the immutable fixed point.
 Run the baseline, then follow the shared
 [review loop](../flyingnobita-deliver/references/review.md), saving artifacts
-outside disposable worktrees. All fixes go through an implementer and
-`flyingnobita-clean-commit`. If baseline failures predate repairs, report them
+outside disposable worktrees. All fixes go through an implementer following
+repository commit rules (or a configured custom commit skill). If baseline failures predate repairs, report them
 and require a scope decision before claiming a clean result.
 
 When clean, report the repair branch and exact target/repair SHAs. If the target

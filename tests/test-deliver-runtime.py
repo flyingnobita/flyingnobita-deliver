@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Behavior tests through deliver-runtime's JSON CLI."""
 import json
+import hashlib
 import os
 import subprocess
 import tempfile
@@ -352,6 +353,84 @@ class RuntimeTests(unittest.TestCase):
         for override in [{'mode': 'full-access'}, {'effort': 'magic'}]:
             self.call('profiles', {'defaults': {'implementer': {**agy, **override}}}, ok=False)
 
+    def test_omp_profiles_map_native_flags_and_keep_settings(self):
+        omp = {'harness': 'omp', 'model': 'openai/gpt-5.2', 'effort': 'high', 'mode': 'write'}
+        result = self.call('profiles', {'defaults': {'implementer': omp},
+                                        'run': {'implementer': {'effort': 'xhigh'}}})['implementer']
+        self.assertEqual(result['profile'], {**omp, 'effort': 'xhigh'})
+        self.assertEqual(result['argv'], ['--model', 'openai/gpt-5.2', '--thinking', 'xhigh',
+                                         '--approval-mode', 'write'])
+        self.assertFalse(result['availability_verified'])
+        for role in ('planner', 'reviewer', 'qa'):
+            result = self.call('profiles', {'defaults': {role: {**omp, 'mode': 'default'}}})[role]
+            self.assertEqual(result['argv'], ['--model', 'openai/gpt-5.2', '--thinking', 'high'])
+        result = self.call('profiles', {'defaults': {'qa': {
+            'harness': 'omp', 'model': 'openai/gpt-5.2', 'effort': 'auto', 'mode': 'yolo'}}})['qa']
+        self.assertEqual(result['argv'], ['--model', 'openai/gpt-5.2', '--thinking', 'auto',
+                                          '--approval-mode', 'yolo'])
+        for override in [{'effort': 'magic'}, {'effort': 'plan'}, {'mode': 'read-only'},
+                         {'mode': 'plan'}, {'mode': 'full-access'}, {'model': '-gpt'}]:
+            self.call('profiles', {'defaults': {'implementer': {**omp, **override}}}, ok=False)
+
+    def test_opencode_requires_native_session_before_full_tui_launch(self):
+        profile = {'harness': 'opencode', 'model': 'openrouter/anthropic/claude-sonnet-4-5',
+                   'effort': 'high', 'mode': 'default'}
+        requested = self.call('profiles', {'defaults': {'planner': profile},
+                                           'project': {'planner': {'effort': 'medium'}}})['planner']
+        self.assertIsNone(requested['argv'])
+        self.assertEqual(requested['session_request'], {'model': {
+            'providerID': 'openrouter', 'id': 'anthropic/claude-sonnet-4-5', 'variant': 'medium'}})
+        with tempfile.TemporaryDirectory() as directory:
+            session = {'id': 'ses_owned', 'model': {'providerID': 'openrouter',
+                'id': 'anthropic/claude-sonnet-4-5', 'variant': 'high'},
+                'location': {'directory': directory}}
+            for role in ('planner', 'implementer', 'reviewer', 'qa'):
+                launch = self.call('profiles', {'defaults': {role: profile},
+                    'opencode_sessions': {role: {'directory': directory, 'session': session}}})[role]
+                self.assertEqual(launch['argv'], ['--session', 'ses_owned'])
+                self.assertEqual(launch['profile'], profile)
+                self.assertFalse(launch['availability_verified'])
+        for override in [{'mode': 'auto'}, {'mode': 'plan'}, {'mode': 'read-only'},
+                         {'effort': 'magic'}, {'effort': 'auto'}, {'model': 'unqualified'},
+                         {'model': 'openrouter/x#high'}, {'model': 'openrouter/two words'}]:
+            self.call('profiles', {'defaults': {'implementer': {**profile, **override}}}, ok=False)
+
+    def test_opencode_refuses_mismatched_or_malformed_native_session(self):
+        profile = {'harness': 'opencode', 'model': 'deepseek/deepseek-flash',
+                   'effort': 'high', 'mode': 'default'}
+        with tempfile.TemporaryDirectory() as directory:
+            session = {'id': 'ses_owned', 'model': {'providerID': 'deepseek',
+                'id': 'deepseek-flash', 'variant': 'high'}, 'location': {'directory': directory}}
+            for changed in [
+                {'model': {**session['model'], 'variant': 'low'}},
+                {'model': {**session['model'], 'id': 'different'}},
+                {'model': {**session['model'], 'providerID': 'other'}},
+                {'model': None}, {'location': {'directory': '/other-worktree'}},
+                {'location': None}, {'location': 'invalid'},
+                {'id': '--auto'}, {'id': 'ses_two words'}, {'id': None},
+            ]:
+                error = self.call('profiles', {'defaults': {'qa': profile}, 'opencode_sessions': {
+                    'qa': {'directory': directory, 'session': {**session, **changed}}}}, ok=False)
+                self.assertNotIn('Traceback', error)
+            for binding in [None, {}, {'directory': 'relative', 'session': session},
+                            {'directory': directory, 'session': []}]:
+                self.call('profiles', {'defaults': {'qa': profile},
+                          'opencode_sessions': {'qa': binding}}, ok=False)
+            self.call('profiles', {'defaults': {'qa': profile},
+                      'opencode_sessions': {'planner': {'directory': directory, 'session': session}}},
+                      ok=False)
+        self.call('profiles', {'opencode_sessions': []}, ok=False)
+
+    def test_pi_profiles_map_thinking_flag_for_every_role(self):
+        pi = {'harness': 'pi', 'model': 'opencode-go/deepseek-v4.1-flash', 'effort': 'high',
+              'mode': 'default'}
+        for role in ('planner', 'implementer', 'reviewer', 'qa'):
+            self.assertEqual(self.call('profiles', {'defaults': {role: pi}})[role]['argv'],
+                             ['--model', 'opencode-go/deepseek-v4.1-flash', '--thinking', 'high'])
+        for override in [{'mode': 'auto'}, {'mode': 'plan'}, {'mode': 'read-only'},
+                         {'effort': 'magic'}, {'model': '-kimi'}]:
+            self.call('profiles', {'defaults': {'implementer': {**pi, **override}}}, ok=False)
+
     def git(self, repo, *args):
         return subprocess.check_output(['git', '-C', str(repo), *args], text=True).strip()
 
@@ -367,6 +446,14 @@ class RuntimeTests(unittest.TestCase):
                    'profiles': {}, 'base': 'main', 'branch': 'main'}
         run = self.call('create', payload)
         return repo, {'state_root': str(root / 'state'), 'run_id': run['run_id']}
+
+    def bind_fixture_profile(self, payload, profile=None, session='fixture-worker'):
+        profile = profile or {'harness': 'pi', 'model': 'deepseek/deepseek-flash',
+                              'effort': 'high', 'mode': 'default'}
+        return self.call('profile-bind', {**payload, 'requested_profile': profile,
+                         'observed_profile': profile, 'worker_session': session,
+                         'profile_authorization': 'Explicit synthetic fixture selection',
+                         'evidence': 'Synthetic startup inspection', 'availability_verified': True})
 
     def test_run_records_are_private_and_survive_a_second_process(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -412,9 +499,11 @@ class RuntimeTests(unittest.TestCase):
             attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
             payload = {**run, 'task': 'build', 'attempt': attempt['id']}
             self.call('dispatch-intent', {**payload, 'prompt': 'implement'})
+            self.bind_fixture_profile(payload)
             report = {'run_id': run['run_id'], 'task': 'build', 'attempt': attempt['id'],
                       'commit': self.git(worktree, 'rev-parse', 'HEAD'),
-                      'checks': [{'command': 'fixture', 'result': 'passed'}], 'questions': []}
+                      'checks': [{'command': 'fixture', 'result': 'passed'}], 'questions': [],
+                      'test_scope': 'none', 'test_evidence': [], 'test_reason': 'No source or test changes'}
             self.call('report', {**payload, 'report': {**report, 'attempt': 'stale'}}, ok=False)
             self.call('report', {**payload, 'report': report})
             self.assertFalse(self.call('show', run)['tasks']['build']['verified'])
@@ -465,6 +554,208 @@ class RuntimeTests(unittest.TestCase):
             self.call('reconcile', {**payload, 'observation': {**observation, 'dispatch': 'not-submitted'}})
             self.call('recover', {**run, 'task': 'build'}, ok=False)
 
+    def test_native_prompt_acknowledges_work_without_waiting_for_completion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run = self.setup_run(root)
+            self.call('task', {**run, 'task': 'build'})
+            worktree = root / 'worker'
+            self.git(repo, 'worktree', 'add', '-q', '-b', 'build', str(worktree), 'main')
+            resource = {'worktree': str(worktree), 'branch': 'build', 'workspace': 'w2',
+                        'pane': 'w2:p1', 'agent': 'build', 'session': 'fixture'}
+            attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
+            fake = root / 'herdr'
+            fake.write_text('#!/usr/bin/env python3\nimport json,sys\n'
+                            'if sys.argv[1:3] == ["agent", "get"]:\n'
+                            ' print(json.dumps({"result":{"agent":{"pane_id":"w2:p1",'
+                            '"workspace_id":"w2","agent_status":"done","completion_seq":7,'
+                            '"agent_session":{"value":"worker"}}}}))\n'
+                            'else:\n'
+                            ' args=sys.argv[1:]\n'
+                            ' # A long task cannot reach the default done/idle wait in time.\n'
+                            ' sys.exit(0 if args.count("--until")==2 and '
+                            '"working" in args and "blocked" in args else 1)\n')
+            fake.chmod(0o700)
+            payload = {**run, 'task': 'build', 'attempt': attempt['id'], 'prompt': 'build',
+                       'herdr_bin': str(fake), 'worker_session': 'worker', 'timeout_ms': 100}
+            record = self.call('prompt', payload)
+            actual = record['tasks']['build']['attempts'][0]
+            self.assertEqual(actual['status'], 'observed')
+            self.assertEqual(actual['completion_baseline'], 7)
+            self.assertFalse(record['tasks']['build']['verified'])
+            self.call('prompt', payload, ok=False)
+
+    def provenance_fixture(self, root, kind='behavioral', docs_only=False, bind_profile=True):
+        repo, run = self.setup_run(root)
+        self.call('task', {**run, 'task': 'build'})
+        worker = root / 'worker'
+        self.git(repo, 'worktree', 'add', '-q', '-b', 'build', str(worker), 'main')
+        resource = {'worktree': str(worker), 'branch': 'build', 'workspace': 'w2',
+                    'pane': 'w2:p1', 'agent': 'build', 'session': 'fixture'}
+        attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
+        payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+        self.call('dispatch-intent', {**payload, 'prompt': 'build'})
+        if bind_profile:
+            self.bind_fixture_profile(payload)
+        test_path = 'README.md' if docs_only else 'test_feature.py'
+        (worker / test_path).write_text('assert actual == expected\n')
+        self.git(worker, 'add', test_path)
+        self.git(worker, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                 '-c', 'commit.gpgsign=false', 'commit', '-qm', 'test')
+        test_commit = self.git(worker, 'rev-parse', 'HEAD')
+        feature_path = 'details.md' if docs_only else 'feature.py'
+        (worker / feature_path).write_text('actual = expected\n')
+        self.git(worker, 'add', feature_path)
+        self.git(worker, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                 '-c', 'commit.gpgsign=false', 'commit', '-qm', 'fix')
+        tests = [{'path': test_path,
+                  'sha256': hashlib.sha256((worker / test_path).read_bytes()).hexdigest()}]
+        group = {'id': 'feature', 'kind': kind, 'subject_commit': attempt['base'],
+                 'test_commit': test_commit, 'tests': tests, 'reason': 'Approved public CLI seam'}
+        report = {'run_id': run['run_id'], 'task': 'build', 'attempt': attempt['id'],
+                  'commit': self.git(worker, 'rev-parse', 'HEAD'), 'checks': ['green'], 'questions': [],
+                  'test_scope': 'changed', 'test_evidence': [group]}
+        return payload, report
+
+    def test_profile_proof_is_required_and_must_match_the_authorized_request(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory), docs_only=True, bind_profile=False)
+            report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed')
+            self.call('report', {**payload, 'report': report})
+            verify = {**payload, 'commit': report['commit'], 'host': 'fixture', 'evidence': 'checked'}
+            self.call('verify', verify, ok=False)
+            requested = {'harness': 'pi', 'model': 'deepseek/deepseek-flash', 'effort': 'high', 'mode': 'default'}
+            proof = {**payload, 'requested_profile': requested, 'observed_profile': requested,
+                     'worker_session': 'worker', 'evidence': 'startup', 'availability_verified': True}
+            self.call('profile-bind', proof, ok=False)
+            self.call('profile-bind', {**proof, 'profile_authorization': 'User selected Pi',
+                                      'observed_profile': {**requested, 'effort': 'low'}}, ok=False)
+            self.call('profile-bind', {**proof, 'profile_authorization': 'User selected Pi'})
+            self.call('profile-bind', {**proof, 'profile_authorization': 'User selected Pi'}, ok=False)
+            record = self.call('verify', verify)
+            attempt = record['tasks']['build']['attempts'][0]
+            self.assertEqual(attempt['profile_proof']['observed_profile'], requested)
+            self.assertLessEqual(attempt['created_at'], attempt['dispatched_at'])
+            self.assertLessEqual(attempt['dispatched_at'], attempt['reported_at'])
+            self.assertLessEqual(attempt['reported_at'], attempt['verified_at'])
+
+    def test_quota_switch_creates_a_new_profile_history_entry_with_authority(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory), docs_only=True)
+            report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed')
+            self.call('report', {**payload, 'report': report})
+            replacement = {'harness': 'claude', 'model': 'claude-opus-5-5', 'effort': 'medium', 'mode': 'auto'}
+            followup = {**payload, 'evidence': 'Quota blocked; user chose replacement',
+                        'requested_profile': replacement}
+            self.call('followup', followup, ok=False)
+            record = self.call('followup', {**followup, 'profile_authorization': 'User approved quota switch'})
+            old, new = record['tasks']['build']['attempts']
+            self.assertEqual(old['profile_proof']['observed_profile']['harness'], 'pi')
+            self.assertEqual(new['requested_profile'], replacement)
+            self.assertNotIn('profile_proof', new)
+            new_payload = {**payload, 'attempt': new['id']}
+            self.call('dispatch-intent', {**new_payload, 'prompt': 'continue'})
+            self.bind_fixture_profile(new_payload, replacement, 'replacement-worker')
+            actual = self.call('show', payload)['tasks']['build']['attempts']
+            self.assertEqual(actual[0]['profile_proof'], old['profile_proof'])
+            self.assertEqual(actual[1]['profile_proof']['worker_session'], 'replacement-worker')
+
+    def provenance_receipt(self, root, payload, report, phase, classification, returncode):
+        group = report['test_evidence'][0]
+        receipt = {key: payload[key] for key in ('run_id', 'task', 'attempt')}
+        receipt.update(phase=phase, subject_commit=group['subject_commit'] if phase == 'before' else report['commit'],
+                       test_commit=group['test_commit'], tests=group['tests'], command=['fixture-test'],
+                       classification=classification, returncode=returncode)
+        path = root / (phase + '.json')
+        path.write_text(json.dumps(receipt))
+        return {'path': str(path), 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+
+    def test_report_requires_test_scope_and_checks_cited_test_objects(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            missing = {k: v for k, v in report.items() if k not in ('test_scope', 'test_evidence')}
+            self.call('report', {**payload, 'report': missing}, ok=False)
+            for field, value in [('path', 'missing.py'), ('path', '../escape.py'), ('sha256', '0' * 64)]:
+                invalid = json.loads(json.dumps(report))
+                invalid['test_evidence'][0]['tests'][0][field] = value
+                self.call('report', {**payload, 'report': invalid}, ok=False)
+            invalid = json.loads(json.dumps(report))
+            invalid['test_evidence'][0]['subject_commit'] = report['commit']
+            self.call('report', {**payload, 'report': invalid}, ok=False)
+            self.call('report', {**payload, 'report': report})
+
+    def test_verification_requires_matching_independent_assertion_receipts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload, report = self.provenance_fixture(root)
+            self.call('report', {**payload, 'report': report})
+            verify = {**payload, 'commit': report['commit'], 'host': 'fixture', 'evidence': 'independent run'}
+            self.call('verify', verify, ok=False)
+            after = self.provenance_receipt(root, payload, report, 'after', 'passed', 0)
+            for classification, rc in [('fixture-error', 127), ('tool-error', 1), ('passed', 0),
+                                       ('assertion-failure', True)]:
+                before = self.provenance_receipt(root, payload, report, 'before', classification, rc)
+                self.call('verify', {**verify, 'test_results': [{'id': 'feature', 'before': before, 'after': after}]}, ok=False)
+            before = self.provenance_receipt(root, payload, report, 'before', 'assertion-failure', 1)
+            results = [{'id': 'feature', 'before': before, 'after': after}]
+            before_path = Path(before['path'])
+            original = before_path.read_bytes()
+            before_path.write_bytes(original + b' ')
+            self.call('verify', {**verify, 'test_results': results}, ok=False)
+            before_path.write_bytes(original)
+            wrong_context = json.loads(original)
+            wrong_context['subject_commit'] = report['commit']
+            before_path.write_text(json.dumps(wrong_context))
+            bad = {**before, 'sha256': hashlib.sha256(before_path.read_bytes()).hexdigest()}
+            self.call('verify', {**verify, 'test_results': [{'id': 'feature', 'before': bad, 'after': after}]}, ok=False)
+            before_path.write_bytes(original)
+            self.assertFalse(self.call('show', payload)['tasks']['build']['verified'])
+            self.call('verify', {**verify, 'test_results': results})
+            self.assertTrue(self.call('show', payload)['tasks']['build']['verified'])
+
+    def test_guards_and_bootstrap_absence_are_explicit_exceptions(self):
+        for kind, classification, rc in [('guard', 'passed', 0), ('bootstrap', 'bootstrap-absence', 1)]:
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                payload, report = self.provenance_fixture(root, kind)
+                self.call('report', {**payload, 'report': report})
+                before = self.provenance_receipt(root, payload, report, 'before', classification, rc)
+                after = self.provenance_receipt(root, payload, report, 'after', 'passed', 0)
+                self.call('verify', {**payload, 'commit': report['commit'], 'host': 'fixture', 'evidence': 'checked',
+                                     'test_results': [{'id': 'feature', 'before': before, 'after': after}]})
+
+    def test_no_test_exemptions_require_a_reason_and_docs_only_rejects_code(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            report.update(test_scope='none', test_evidence=[])
+            self.call('report', {**payload, 'report': report}, ok=False)
+            report.update(test_scope='docs-only', test_reason='Documentation only')
+            self.call('report', {**payload, 'report': report}, ok=False)
+            report.update(test_scope='none', test_reason='No new tests')
+            self.call('report', {**payload, 'report': report}, ok=False)
+
+    def test_docs_only_report_needs_no_behavioral_red(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory), docs_only=True)
+            report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed')
+            self.call('report', {**payload, 'report': report})
+            self.call('verify', {**payload, 'commit': report['commit'], 'host': 'fixture', 'evidence': 'links checked'})
+
+    def test_legacy_records_do_not_require_new_fields_but_validate_opted_in_proof(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory), bind_profile=False)
+            path = Path(payload['state_root']) / payload['run_id'] / 'run.json'
+            record = json.loads(path.read_text())
+            record.pop('test_contract', None)
+            record.pop('profile_contract', None)
+            path.write_text(json.dumps(record))
+            invalid = json.loads(json.dumps(report))
+            invalid['test_evidence'][0]['tests'][0]['path'] = 'missing.py'
+            self.call('report', {**payload, 'report': invalid}, ok=False)
+            legacy = {k: v for k, v in report.items() if k not in ('test_scope', 'test_evidence')}
+            self.call('report', {**payload, 'report': legacy})
+            self.call('verify', {**payload, 'commit': legacy['commit'], 'host': 'fixture', 'evidence': 'legacy independent check'})
+
     def test_native_prompt_timeout_is_durable_and_never_resubmitted(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -508,9 +799,11 @@ class RuntimeTests(unittest.TestCase):
             attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
             payload = {**run, 'task': 'build', 'attempt': attempt['id']}
             self.call('dispatch-intent', {**payload, 'prompt': 'build'})
+            self.bind_fixture_profile(payload)
             self.call('cleanup-check', {**payload, 'observation': resource, 'landed': 'main'}, ok=False)
             report = {'run_id': run['run_id'], 'task': 'build', 'attempt': attempt['id'],
-                      'commit': attempt['base'], 'checks': ['passed'], 'questions': []}
+                      'commit': attempt['base'], 'checks': ['passed'], 'questions': [],
+                      'test_scope': 'none', 'test_evidence': [], 'test_reason': 'No source or test changes'}
             self.call('report', {**payload, 'report': report})
             self.call('verify', {**payload, 'commit': report['commit'], 'host': 'fixture', 'evidence': 'checked'})
             self.call('cleanup-check', {**payload, 'observation': {**resource, 'pane': 'another'}, 'landed': 'main'}, ok=False)
@@ -642,8 +935,10 @@ class RuntimeTests(unittest.TestCase):
             attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
             payload = {**run, 'task': 'build', 'attempt': attempt['id']}
             self.call('dispatch-intent', {**payload, 'prompt': 'build'})
+            self.bind_fixture_profile(payload)
             report = {'run_id': run['run_id'], 'task': 'build', 'attempt': attempt['id'],
-                      'commit': attempt['base'], 'checks': ['read plan'], 'questions': ['Which name?']}
+                      'commit': attempt['base'], 'checks': ['read plan'], 'questions': ['Which name?'],
+                      'test_scope': 'none', 'test_evidence': [], 'test_reason': 'No source or test changes'}
             self.call('report', {**payload, 'report': report})
             self.call('verify', {**payload, 'commit': attempt['base'], 'host': 'fixture', 'evidence': 'checked'}, ok=False)
             self.call('followup', {**payload, 'evidence': 'answer from approved plan: name is greeting'})
@@ -654,8 +949,162 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(json.loads(Path(attempt['report_path']).read_text()), report)
             payload = {**run, 'task': 'build', 'attempt': followup['id']}
             self.call('dispatch-intent', {**payload, 'prompt': 'answer: greeting; continue'})
+            self.bind_fixture_profile(payload)
             self.call('report', {**payload, 'report': {**report, 'attempt': followup['id'], 'questions': []}})
             self.call('verify', {**payload, 'commit': attempt['base'], 'host': 'fixture', 'evidence': 'independent checked'})
+
+
+    def worker_fixture(self, root, task='build', branch='build', pane='w2:p1'):
+        repo, run = self.setup_run(root)
+        self.call('task', {**run, 'task': task})
+        worktree = root / 'worker'
+        self.git(repo, 'worktree', 'add', '-q', '-b', branch, str(worktree), 'main')
+        resource = {'worktree': str(worktree), 'branch': branch, 'workspace': pane.split(':')[0],
+                    'pane': pane, 'agent': 'build', 'session': 'fixture'}
+        attempt = self.call('attempt', {**run, 'task': task, 'resource': resource})['tasks'][task]['attempts'][0]
+        return repo, run, worktree, resource, attempt
+
+    def commit_work(self, worktree, name='partial.txt'):
+        (worktree / name).write_text('partial work')
+        self.git(worktree, 'add', name)
+        self.git(worktree, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                 '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'partial')
+        return self.git(worktree, 'rev-parse', 'HEAD')
+
+    def test_handoff_moves_unreported_work_to_an_authorized_replacement_worker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, run, worktree, resource, attempt = self.worker_fixture(root)
+            payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            self.call('dispatch-intent', {**payload, 'prompt': 'build'})
+            head = self.commit_work(worktree)
+            pi = {'harness': 'pi', 'model': 'deepseek/deepseek-flash', 'effort': 'high', 'mode': 'default'}
+            handoff = {**payload, 'evidence': '/tmp/handoff.md: agy quota exhausted mid-task',
+                       'worker': {'pane': 'w2:p3', 'agent': 'build-pi'},
+                       'requested_profile': pi, 'profile_authorization': 'user switched implementer to pi'}
+            self.call('handoff', handoff, ok=False)  # the live worker was never reconciled
+            observation = {'session': 'fixture', 'resource': resource, 'agent_state': 'idle',
+                           'commit': head, 'dispatch': 'uncertain'}
+            self.call('reconcile', {**payload, 'observation': observation})
+            self.call('handoff', {**handoff, 'evidence': ''}, ok=False)
+            self.call('handoff', {**handoff, 'profile_authorization': ''}, ok=False)
+            record = self.call('handoff', handoff)
+            old, new = record['tasks']['build']['attempts']
+            self.assertEqual(old['status'], 'handed-off')
+            self.assertEqual((new['status'], new['base'], new['previous_attempt']), ('ready', head, old['id']))
+            self.assertEqual((new['resource']['pane'], new['resource']['worktree']), ('w2:p3', str(worktree)))
+            self.assertEqual(new['requested_profile']['harness'], 'pi')
+            self.assertEqual(record['tasks']['build']['recoveries'], 0)
+            self.call('dispatch-intent', {**payload, 'prompt': 'stale'}, ok=False)
+            self.call('dispatch-intent', {**run, 'task': 'build', 'attempt': new['id'], 'prompt': 'continue'})
+
+    def test_handoff_refuses_reported_work_and_work_changed_after_reconciliation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, run, worktree, resource, attempt = self.worker_fixture(root)
+            payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            self.call('dispatch-intent', {**payload, 'prompt': 'build'})
+            observation = {'session': 'fixture', 'resource': resource, 'agent_state': 'idle',
+                           'commit': attempt['base'], 'dispatch': 'uncertain'}
+            self.call('reconcile', {**payload, 'observation': observation})
+            self.commit_work(worktree)
+            handoff = {**payload, 'evidence': 'prompt delivered but never run', 'worker': {'pane': 'w2:p3'}}
+            self.call('handoff', handoff, ok=False)
+            head = self.git(worktree, 'rev-parse', 'HEAD')
+            self.call('reconcile', {**payload, 'observation': {**observation, 'commit': head}})
+            self.bind_fixture_profile(payload)
+            self.call('report', {**payload, 'report': {
+                'run_id': run['run_id'], 'task': 'build', 'attempt': attempt['id'], 'commit': head,
+                'checks': ['fixture'], 'questions': ['blocked'], 'test_scope': 'none',
+                'test_evidence': [], 'test_reason': 'No source or test changes'}})
+            self.call('handoff', handoff, ok=False)
+
+    def test_abandon_needs_a_user_decision_and_releases_the_worktree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, run, _, resource, attempt = self.worker_fixture(root)
+            self.call('dispatch-intent', {**run, 'task': 'build', 'attempt': attempt['id'], 'prompt': 'build'})
+            self.call('task', {**run, 'task': 'proofs'})
+            self.call('task', {**run, 'task': 'after', 'dependencies': ['build']})
+            self.call('attempt', {**run, 'task': 'proofs', 'resource': resource}, ok=False)
+            self.call('abandon', {**run, 'task': 'build', 'evidence': 'proofs blocked'}, ok=False)
+            record = self.call('abandon', {**run, 'task': 'build', 'evidence': 'proofs blocked',
+                                           'user_decision': 'user chose to skip the proofs'})
+            self.assertEqual(record['tasks']['build']['abandoned']['user_decision'], 'user chose to skip the proofs')
+            self.assertEqual(record['tasks']['build']['attempts'][-1]['status'], 'abandoned')
+            self.assertFalse(record['tasks']['build']['verified'])
+            self.call('attempt', {**run, 'task': 'build', 'resource': resource}, ok=False)
+            self.call('attempt', {**run, 'task': 'after', 'resource': resource}, ok=False)
+            self.call('dispatch-intent', {**run, 'task': 'build', 'attempt': attempt['id'], 'prompt': 'x'}, ok=False)
+            self.call('attempt', {**run, 'task': 'proofs', 'resource': resource})
+            self.call('task', {**run, 'task': 'never-started'})
+            self.call('abandon', {**run, 'task': 'never-started', 'evidence': 'superseded',
+                                  'user_decision': 'user dropped it'})
+
+    def test_checkpoint_accepts_a_proven_and_confirmed_orchestrator_session_change(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, run, worktree, resource, attempt = self.worker_fixture(root)
+            payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            self.call('dispatch-intent', {**payload, 'prompt': 'build'})
+            moved = {**run, 'stage': 'build', 'evidence': 'restarted orchestrator',
+                     'host': {'host': 'herdr', 'session': 'restarted', 'pane': 'w1:p1'}}
+            self.call('checkpoint', moved, ok=False)
+            proof = {'caller_evidence': 'herdr reports caller session restarted in pane w1:p1',
+                     'user_confirmation': 'user confirmed the restart'}
+            self.call('checkpoint', {**moved, 'session_change': {**proof, 'user_confirmation': ''}}, ok=False)
+            self.call('checkpoint', {**moved, 'host': {**moved['host'], 'host': 'paseo'},
+                                     'session_change': proof}, ok=False)
+            record = self.call('checkpoint', {**moved, 'session_change': proof})
+            self.assertEqual(record['host']['session'], 'restarted')
+            self.assertEqual(record['previous_sessions'], ['fixture'])
+            self.assertEqual(record['evidence'][-1]['session_change'], proof)
+            observation = {'session': 'restarted', 'resource': resource, 'agent_state': 'idle',
+                           'commit': attempt['base'], 'dispatch': 'uncertain'}
+            self.call('reconcile', {**payload, 'observation': observation})
+            self.call('task', {**run, 'task': 'other'})
+            other = root / 'other'
+            self.git(worktree, 'worktree', 'add', '-q', '-b', 'other', str(other), 'main')
+            stale = {'worktree': str(other), 'branch': 'other', 'workspace': 'w3',
+                     'pane': 'w3:p1', 'agent': 'other', 'session': 'fixture'}
+            self.call('attempt', {**run, 'task': 'other', 'resource': stale}, ok=False)
+            self.call('attempt', {**run, 'task': 'other', 'resource': {**stale, 'session': 'restarted'}})
+
+    def fake_wait_herdr(self, root, status):
+        fake = root / 'herdr'
+        fake.write_text('#!/usr/bin/env python3\nimport json,sys\n'
+                        'print(json.dumps({"result":{"agent":{"pane_id":"w2:p1","workspace_id":"w2",'
+                        f'"agent_status":{status!r},"completion_seq":3}}}}}}))\n')
+        fake.chmod(0o700)
+        return str(fake)
+
+    def test_wait_separates_reports_blocks_background_tests_and_silent_settling(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, run, worktree, _, attempt = self.worker_fixture(root)
+            payload = {**run, 'task': 'build', 'attempt': attempt['id'], 'timeout_s': 1, 'poll_s': 0.1}
+            self.call('wait', {**payload, 'timeout_s': 601, 'herdr_bin': self.fake_wait_herdr(root, 'idle')}, ok=False)
+            for status, expected in [('blocked', 'blocked'), ('idle', 'settled-no-report'),
+                                     ('done', 'settled-no-report'), ('working', 'timeout')]:
+                result = self.call('wait', {**payload, 'herdr_bin': self.fake_wait_herdr(root, status)})
+                self.assertEqual((result['state'], result['agent_status']), (expected, status))
+            # An idle pane with a test still running in its worktree has not finished.
+            test = subprocess.Popen(['bash', '-c', 'exec -a "bun test fixture" sleep 30'], cwd=worktree)
+            unrelated = subprocess.Popen(['bash', '-c', 'exec -a "bun test fixture" sleep 30'], cwd=root)
+            try:
+                result = self.call('wait', {**payload, 'herdr_bin': self.fake_wait_herdr(root, 'idle'),
+                                            'busy_pattern': r'\bbun test\b'})
+                self.assertEqual(result['state'], 'background-running')
+                self.assertEqual([p['pid'] for p in result['busy']], [test.pid])
+            finally:
+                test.kill()
+                test.wait()
+                unrelated.kill()
+                unrelated.wait()
+            Path(attempt['report_path']).write_text('{}')
+            result = self.call('wait', {**payload, 'herdr_bin': self.fake_wait_herdr(root, 'working')})
+            self.assertEqual(result['state'], 'reported')
+            self.assertEqual(self.call('show', run)['tasks']['build']['attempts'][0]['status'], 'ready')
 
 
 if __name__ == '__main__':

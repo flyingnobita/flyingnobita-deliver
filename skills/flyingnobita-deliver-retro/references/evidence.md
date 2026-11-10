@@ -11,8 +11,9 @@ for this session by matching `host.session` or `host.pane` with the executing
 session (`CLAUDE_CODE_SESSION_ID`, `CODEX_THREAD_ID`, the Paseo agent ID or the
 Orca runtime ID), else by `repo` and `branch`.
 
-Read `run.json` directly. `deliver-runtime show` takes the run's writer lock
-and fails while a live orchestrator holds it; never wait for or break the lock.
+Read `run.json` directly. The deliver skill's `scripts/deliver-runtime.py show`
+takes the run's writer lock and fails while a live orchestrator holds it; never
+wait for or break the lock.
 
 | Field | What it gives the retro |
 |---|---|
@@ -21,7 +22,7 @@ and fails while a live orchestrator holds it; never wait for or break the lock.
 | `profiles` | Requested and effective role profiles |
 | `concurrency` | The frontier limit to compare with achieved parallelism |
 | `tasks.<id>` | Role, dependencies, `recoveries`, `verified` |
-| `tasks.<id>.attempts[]` | `status`, `base`, `resource`, `prompt_sha256`, `worker_session`, `dispatch_response`, `followup_evidence`, `report_path` |
+| `tasks.<id>.attempts[]` | `status`, `base`, `resource`, `prompt_sha256`, `worker_session`, `dispatch_response`, `followup_evidence`, `report_path`, effective `profile_proof` and observed transition timestamps when present |
 | `operations` | Native mutations with intent and observed result; an intent without a result is an uncertain operation |
 | Orca jobs | Packets, intents, receipts, settlements and `orca-verify` evidence |
 
@@ -30,6 +31,11 @@ review artifacts), baseline and check logs. Herdr runs from before
 2026-10-28 may also hold `dagr/run.json`, whose `events[]` carry timestamps for
 `attempt_started`, `attempt_settled`, directives and notes; use them for
 durations and idle gaps when present.
+
+Prefer runtime observation timestamps when available. Inspect graph provenance
+before treating its times as execution times: a backfilled collection timestamp
+is not a measured start or settlement. Keep missing timings unknown and exclude
+them from active-time and idle-loss totals; do not rewrite old evidence.
 
 ## Transcripts
 

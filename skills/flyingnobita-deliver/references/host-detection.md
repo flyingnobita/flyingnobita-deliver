@@ -43,9 +43,10 @@ Inspect only named identity fields; retain no credentials.
    caller evidence. Updated callers must include Orca even on Paseo/Herdr.
 5. Save the evidence and selected host in the run. On resume repeat the live
    checks and compare the server/session and repo binding. A replacement
-   orchestrator may have a new pane: retain the previous binding and append
-   independently verified replacement evidence before continuing. A host change
-   requires a new run, not a silent adapter switch.
+   orchestrator may have a new pane or session: retain the previous binding and
+   append independently verified replacement evidence before continuing (a new
+   session also needs the user's confirmation; see the adapter's `checkpoint`).
+   A host change requires a new run, not a silent adapter switch.
 
 Marker sets can be inherited by nested agents. If their live records cannot
 disambiguate the executing harness, report the failed checks and stop.

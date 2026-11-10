@@ -27,7 +27,7 @@ Omit absent values.
 
 | Operation | Paseo |
 |---|---|
-| Create a workspace | `create_workspace` with `isolation: worktree`, `mode: branch-off`, `path` = repo root, `branchName`, and an explicit `baseBranch` (`origin/<default>` for an own repo, `upstream/<default>` for an upstream repo). It registers the project; keep the returned `workspaceId` and `cwd`. |
+| Create a workspace | `create_workspace` with `isolation: worktree`, `mode: branch-off`, `path` = repo root, `branchName`, and an explicit `baseBranch` (`origin/<default>` for a direct repo, `upstream/<default>` for an upstream repo). It registers the project; keep the returned `workspaceId` and `cwd`. |
 | Start a role | `create_agent` with the materialized profile, `workspaceId`, a title `<Role>: <work>`, and the role brief as `initialPrompt`. Leave `notifyOnFinish` at its default. |
 | Send a follow-up | `send_agent_prompt` to the same role agent, so it keeps its context. |
 | Wait for an event | Do nothing: finish, error and permission notifications arrive on their own. When a notification's response is truncated, read the rest with `get_agent_activity`. |

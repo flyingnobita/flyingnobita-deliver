@@ -13,11 +13,14 @@ packets, durable artifacts and separate independent gates.
 ## Preflight and profiles
 
 Read [configuration.md](../references/configuration.md). Resolve the needed
-`hosts.orca.roles` tables from project/run settings: four roles for delivery,
-reviewer for review-only, reviewer/implementer for review-repair, and the
-selected profiles for setup. If missing, use
-`flyingnobita-deliver-setup` to choose among installed agents at the grilling
-stop. Omit unset model and effort flags; never silently substitute a model.
+roles from [orca-profiles.toml](../references/orca-profiles.toml), then project
+and run `hosts.orca.roles` tables: four roles for delivery, reviewer for
+review-only, reviewer/implementer for review-repair, and the selected profiles
+for setup. A project or run table replaces that role's default whole, so a
+changed harness never inherits another harness's model. If a default is
+unavailable, use `flyingnobita-deliver-setup` to choose among installed agents
+at the grilling stop. Omit unset model and effort flags; never silently
+substitute a model.
 Inspect launch permissions in Orca's actual settings/receipt. `worker-start`
 does not expose a per-role permission-mode flag in the inspected 1.4.237 CLI.
 Do not invent one or rewrite global settings to obtain a launch.
@@ -32,7 +35,7 @@ answer a dialog by sending terminal keystrokes or broadening permissions.
 Validate agent/model/effort with setup's no-edit smoke task and inspect
 `launch.requested` versus `launch.effective` on every real start. The native
 review skill may need its own nested agents: check that capability separately.
-The reviewer does not dispatch repairs, so Deliver adds no nested fixer level.
+The reviewer does not dispatch repairs, so Deliver adds no nested worker level.
 
 ## Durable delivery record
 
@@ -83,8 +86,9 @@ Each Task brief names target, change, constraints, ownership and observable
 acceptance; points to the approved artifacts and relevant role instructions;
 and requires the native preamble's exact lifecycle commands. Workers read
 follow-ups at natural checkpoints, send one `worker_done` with actual IDs,
-outcome, checks and report path, then idle. Implementers load
-`flyingnobita-clean-commit`; no worker pushes, deploys or uses old `orch-*`
+outcome, checks and report path, then idle. Implementers follow
+repository commit rules (or a configured custom commit skill); no worker pushes,
+deploys or uses old `orch-*`
 templates. Save planner output through `worker-read` when the profile cannot
 write a plan artifact; inspect and persist it before the plan stop.
 

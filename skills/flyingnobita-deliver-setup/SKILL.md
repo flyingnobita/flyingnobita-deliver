@@ -18,7 +18,7 @@ interview. Inside Deliver, join unresolved choices to its grilling stop.
 2. Run every check in [prerequisites](references/prerequisites.md) for the
    selected host and report its table. For each failed required row, give the
    fix and its link, and apply it only on the user's approval. A blocking row
-   (missing `flyingnobita-clean-commit`, helper or host component) stops setup
+   (missing commit capability, helper or host component) stops setup
    before smoke tests. Then present the optional section separately.
 3. If legacy configuration or an old run exists, read
    [migration](../flyingnobita-deliver/references/migration.md). Preview changes
@@ -50,4 +50,4 @@ optional item was offered, settings are recorded, every selected profile has a
 verified result or explicit blocker, and every setup resource is removed or
 named as retained. Report the prerequisite table, changes, effective settings,
 permissions, smoke evidence and migration decisions. Commit through
-`flyingnobita-clean-commit`; publication is separate.
+repository commit rules (or a configured custom commit skill); publication is separate.

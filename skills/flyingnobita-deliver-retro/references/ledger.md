@@ -33,5 +33,15 @@ choice, then to `implemented` with its `commit`. A later retro sets `held` or
 Edit only the status fields of a past entry; everything else is the record of
 what that retro saw.
 
+When the user accepts the final offer to centralize TODOs, also add/update the
+selected candidates' `tracker_refs` with verified URLs or local tracker paths
+and entry IDs. This is a bookkeeping exception to the status-only rule: preserve
+all original findings, measures and evidence. Existing entries without this
+optional field remain valid. Logging a proposal does not change its status to
+`accepted` or authorize implementation.
+
 A trend needs runs, not retros: count each run once even when several retros
 read it.
+
+Keep `minutes` fields numeric. Format user-facing table durations as `Hh Mm`
+(337 minutes becomes `5h 37m`); presentation does not change stored evidence.

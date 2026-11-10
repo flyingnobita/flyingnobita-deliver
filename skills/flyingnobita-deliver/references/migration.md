@@ -38,21 +38,19 @@ legacy-run disposition. Use `flyingnobita-deliver-setup` for setup,
 `flyingnobita-deliver` for implementation, `flyingnobita-deliver-review` for
 review/repair and the [workflow guide](workflow.md) for questions.
 
-All new workers load `flyingnobita-clean-commit` directly. A retired template
-read no longer satisfies the Claude, Codex or Antigravity commit gate. Local
-commit authority still grants no publication or deployment authority.
+All new workers follow repository commit rules directly (or an explicitly configured
+custom commit skill). A retired template read no longer satisfies the Claude, Codex
+or Antigravity commit gate. Local commit authority still grants no publication or
+deployment authority.
 
-`.chezmoiremove.tmpl` names installed legacy skill directories and historical
-agent copies explicitly. Deploy only through an authorized scoped apply after
-reviewing live drift and backing up changed copies. Source removal and installed-copy removal are separate checks. Fleet retirement
-was verified on seven hosts on 2026-10-24; Actions 95/110/111 are complete.
+Source removal and installed-copy removal are separate checks. When cleaning up legacy
+installations, remove installed legacy skill directories only after reviewing local
+changes and backing up any custom modifications.
 
 Native run records, reports, worktrees and configuration migration evidence
-are outside the removal list. Preserve the two MBP-M4 historical no-resource
-attempts with unverifiable liveness. A matching live process discovered later
-requires fresh native ownership/authority checks; this retirement authorizes
+are outside the removal list. A matching live process discovered later
+requires fresh native ownership/authority checks; retirement authorizes
 no takeover or process termination.
 
-Acceptance scope, evidence and limitations:
-[[dev-docs/plan-progress/20261023-deliver-orca]]. No OS reboot, macOS desktop
-restoration or every-profile acceptance is implied by the bounded checks.
+Acceptance scope and limitations: bounded checks do not imply OS reboot, desktop
+restoration or unverified profile compatibility beyond checked evidence.
