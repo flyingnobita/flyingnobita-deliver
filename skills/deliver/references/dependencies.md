@@ -1,6 +1,6 @@
 # Dependencies
 
-Matt Pocock skills may be installed under their upstream names (`grilling`, `tdd`) from `mattpocock/skills` or with a local prefix (`mattpocock-grilling`, `mattpocock-tdd`). The delivery suite resolves both forms interchangeably. Where an upstream name collides with a harness built-in (such as Claude Code's `code-review`), check that the installed `SKILL.md` comes from `mattpocock/skills`. This file is the single record of what `flyingnobita-deliver` relies on from each, and the fallback when that changes. After an upstream update, check each **contract** against the dependency's current `SKILL.md`.
+Matt Pocock skills may be installed under their upstream names (`grilling`, `tdd`) from `mattpocock/skills` or with a local prefix (`mattpocock-grilling`, `mattpocock-tdd`). The delivery suite resolves both forms interchangeably. Where an upstream name collides with a harness built-in (such as Claude Code's `code-review`), check that the installed `SKILL.md` comes from `mattpocock/skills`. This file is the single record of what `deliver` relies on from each, and the fallback when that changes. After an upstream update, check each **contract** against the dependency's current `SKILL.md`.
 
 The pipeline follows Matt Pocock's implement workflow (`implement` / `mattpocock-implement`, `implement-spec` / `mattpocock-implement-spec`, as routed by `ask-matt` / `mattpocock-ask-matt`). If that workflow changes upstream, re-check `pipeline.md` against it.
 
@@ -30,12 +30,12 @@ These are user-invoked (`disable-model-invocation: true`), so the orchestrator o
 | Skill | When | Where |
 |---|---|---|
 | `/wayfinder` (or `/mattpocock-wayfinder`) | Work too large for one run | Grilling stop |
-| `/flyingnobita-deliver-retro` | A run with scope changes, extra review loops, or fallbacks | Final report |
+| `/deliver-retro` (or `/flyingnobita-deliver-retro`) | A run with scope changes, extra review loops, or fallbacks | Final report |
 
-`flyingnobita-deliver-retro` loads `retro` (or `mattpocock-retro`) for its
+`deliver-retro` (or `flyingnobita-deliver-retro`) loads `retro` (or `mattpocock-retro`) for its
 environment review and adds the multi-agent checks. The sibling skill owns that
 contract and the step that checks it, recorded in
-[its upstream reference](../../flyingnobita-deliver-retro/references/upstream.md);
+[its upstream reference](../../deliver-retro/references/upstream.md);
 change it there, not here.
 
 ## File formats read

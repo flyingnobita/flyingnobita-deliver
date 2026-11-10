@@ -31,10 +31,12 @@ Supported harnesses by host:
 
 | Skill | What it does | How to run it |
 |---|---|---|
-| [`flyingnobita-deliver`](skills/flyingnobita-deliver/SKILL.md) | Runs a full delivery | `deliver <input>` (issue URL, `#N`, spec or brief) |
-| [`flyingnobita-deliver-setup`](skills/flyingnobita-deliver-setup/SKILL.md) | Checks prerequisites, configures role profiles, validates hosts | `/flyingnobita-deliver-setup` |
-| [`flyingnobita-deliver-review`](skills/flyingnobita-deliver-review/SKILL.md) | Reviews and repairs an existing branch against standards and spec | `/flyingnobita-deliver-review` |
-| [`flyingnobita-deliver-retro`](skills/flyingnobita-deliver-retro/SKILL.md) | Looks back over past runs and proposes fixes to the skills and profiles | `/flyingnobita-deliver-retro` |
+| [`deliver`](skills/deliver/SKILL.md) | Runs a full delivery | `deliver <input>` (issue URL, `#N`, spec or brief) |
+| [`deliver-setup`](skills/deliver-setup/SKILL.md) | Checks prerequisites, configures role profiles, validates hosts | `/deliver-setup` |
+| [`deliver-review`](skills/deliver-review/SKILL.md) | Reviews and repairs an existing branch against standards and spec | `/deliver-review` |
+| [`deliver-retro`](skills/deliver-retro/SKILL.md) | Looks back over past runs and proposes fixes to the skills and profiles | `/deliver-retro` |
+
+The `flyingnobita-` prefix is a fleet convention, not part of these names. Fleet installs still see `flyingnobita-deliver`, `flyingnobita-deliver-setup` and so on, and the suite resolves both forms.
 
 ## Install
 
@@ -54,8 +56,10 @@ skills add flyingnobita/flyingnobita-deliver#v0.1.2 -g
 To update, pass the installed skill names, not the repo slug:
 
 ```bash
-skills update flyingnobita-deliver flyingnobita-deliver-setup flyingnobita-deliver-review flyingnobita-deliver-retro -g
+skills update deliver deliver-setup deliver-review deliver-retro -g
 ```
+
+If you installed the older prefixed names, remove and re-add the suite instead: the lock keys changed (see the CHANGELOG).
 
 `skills update -g` updates everything, and rerunning `skills add ... -g -y` reinstalls from the tip of `main`.
 
@@ -83,7 +87,7 @@ It asks you questions about the brief, waits for you to approve a plan, then bui
   - Orca: `brew install --cask stablyai/orca/orca` on macOS, `stably-orca-bin` or `orca-ide-bin` on Linux. On Linux outside an Orca terminal, call the CLI as `orca-ide`. Bare `orca` starts the GNOME screen reader.
 - Matt Pocock's skills: `skills add mattpocock/skills -g`. The suite uses `grilling`, `tdd`, `code-review`, `pr`, `diagnosing-bugs`, `domain-modeling`, `wizard` and `writing-for-agents`, and also finds them under a `mattpocock-` prefix.
 
-`/flyingnobita-deliver-setup` checks all of this.
+`/deliver-setup` checks all of this.
 
 ## How a run works
 
@@ -117,7 +121,7 @@ landing = "standard"      # standard | leave | pr
 commit_skill = ""         # optional custom commit skill name
 ```
 
-Role profiles are set differently on each host. Every setting and value is explained in [configuration.md](skills/flyingnobita-deliver/references/configuration.md).
+Role profiles are set differently on each host. Every setting and value is explained in [configuration.md](skills/deliver/references/configuration.md).
 
 ### Orca
 
@@ -145,7 +149,7 @@ model = "gpt-6.1-sol"
 effort = "low"
 ```
 
-`model` and `effort` are optional; leave them out to use Orca's defaults, but `effort` needs an explicit `model`. A role table you set replaces that role's [default](skills/flyingnobita-deliver/references/orca-profiles.toml) whole.
+`model` and `effort` are optional; leave them out to use Orca's defaults, but `effort` needs an explicit `model`. A role table you set replaces that role's [default](skills/deliver/references/orca-profiles.toml) whole.
 
 ### Herdr
 
@@ -165,7 +169,7 @@ effort = "medium"
 mode = "auto"
 ```
 
-Fields you set are merged over the [defaults](skills/flyingnobita-deliver/references/herdr-profiles.toml), so you only list what you change. Valid `mode` values depend on the harness; see the [Herdr adapter](skills/flyingnobita-deliver/adapters/herdr.md).
+Fields you set are merged over the [defaults](skills/deliver/references/herdr-profiles.toml), so you only list what you change. Valid `mode` values depend on the harness; see the [Herdr adapter](skills/deliver/adapters/herdr.md).
 
 ### Paseo
 

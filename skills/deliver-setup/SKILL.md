@@ -1,27 +1,27 @@
 ---
-name: flyingnobita-deliver-setup
-description: Check delivery prerequisites and offer fixes, configure delivery profiles and project defaults, validate a delivery host, or migrate legacy Orca orchestration settings to flyingnobita-deliver.
+name: deliver-setup
+description: Check delivery prerequisites and offer fixes, configure delivery profiles and project defaults, validate a delivery host, or migrate legacy Orca orchestration settings to `deliver` (or `flyingnobita-deliver`).
 ---
 
 # Set up delivery
 
-Configure the requested repo for `flyingnobita-deliver`. This is an idempotent
+Configure the requested repo for `deliver` (or `flyingnobita-deliver`). This is an idempotent
 setup operation, not a delivery run. Existing valid defaults need no repeated
 interview. Inside Deliver, join unresolved choices to its grilling stop.
 
 1. Read the repo's rules and the shared
-   [configuration](../flyingnobita-deliver/references/configuration.md).
-   Detect the host using [host detection](../flyingnobita-deliver/references/host-detection.md).
-   Read only its adapter: [Orca](../flyingnobita-deliver/adapters/orca.md),
-   [Herdr](../flyingnobita-deliver/adapters/herdr.md), or
-   [Paseo](../flyingnobita-deliver/adapters/paseo.md).
+   [configuration](../deliver/references/configuration.md).
+   Detect the host using [host detection](../deliver/references/host-detection.md).
+   Read only its adapter: [Orca](../deliver/adapters/orca.md),
+   [Herdr](../deliver/adapters/herdr.md), or
+   [Paseo](../deliver/adapters/paseo.md).
 2. Run every check in [prerequisites](references/prerequisites.md) for the
    selected host and report its table. For each failed required row, give the
    fix and its link, and apply it only on the user's approval. A blocking row
    (missing commit capability, helper or host component) stops setup
    before smoke tests. Then present the optional section separately.
 3. If legacy configuration or an old run exists, read
-   [migration](../flyingnobita-deliver/references/migration.md). Preview changes
+   [migration](../deliver/references/migration.md). Preview changes
    and inventory existing runs before proposing removal. Do not commandeer them.
 4. Resolve planner, implementer, reviewer and QA settings. Recommend a distinct
    reviewer model/harness when available. Ask only for missing/unsupported
@@ -34,7 +34,7 @@ interview. Inside Deliver, join unresolved choices to its grilling stop.
    validated or silently broaden its permissions. Use an isolated setup record;
    a smoke test grants no delivery brief/plan approval. Use `purpose:"setup"`
    and `approved.setup` with the concrete request/selected profiles as defined
-   in [run records](../flyingnobita-deliver/references/run-record.md). Orca and
+   in [run records](../deliver/references/run-record.md). Orca and
    Herdr smoke jobs use role `smoke` with each selected profile in turn.
 6. Back up any existing project config. Write only approved project values,
    preserving unknown keys and unrelated host tables. Paseo profiles remain in

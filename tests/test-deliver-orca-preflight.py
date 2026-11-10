@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
-SCRIPT = (Path(__file__).resolve().parents[1] / 'skills/flyingnobita-deliver/scripts'
+SCRIPT = (Path(__file__).resolve().parents[1] / 'skills/deliver/scripts'
           / 'deliver-orca-preflight.py')
 loader = importlib.machinery.SourceFileLoader('preflight', str(SCRIPT))
 spec = importlib.util.spec_from_loader(loader.name, loader)

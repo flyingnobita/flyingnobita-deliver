@@ -1,6 +1,6 @@
 ---
-name: flyingnobita-deliver-retro
-description: Run a retrospective on one or more flyingnobita-deliver runs and propose improvements to the delivery skill, its runtime checks and role profiles.
+name: deliver-retro
+description: Run a retrospective on one or more delivery runs (`deliver` or `flyingnobita-deliver`) and propose improvements to the delivery skill, its runtime checks and role profiles.
 disable-model-invocation: true
 ---
 
@@ -79,9 +79,9 @@ for implementation; choosing to log a proposal is not that approval.
    4. **Project rule**: the delivered repo's `AGENTS.md` `## Delivery` section,
       `docs/agents/delivery.toml`, or a repo check from step 1.
    5. **Dependency**: an upstream `mattpocock-*` skill; record the contract
-      change in [dependencies](../flyingnobita-deliver/references/dependencies.md).
+      change in [dependencies](../deliver/references/dependencies.md).
 
-   | Behaviour | Owning file under `skills/flyingnobita-deliver/` |
+   | Behaviour | Owning file under `skills/deliver/` |
    |---|---|
    | Stops, stage order, orchestrator vs role edits, ticket split rule | `SKILL.md` |
    | Brief, grilling depth, size route | `references/intake.md` |
@@ -95,7 +95,7 @@ for implementation; choosing to log a proposal is not that approval.
    | Herdr default profiles | `references/herdr-profiles.toml` |
    | Paseo shared profiles | Paseo profile configuration (daemon / MCP) |
    | Orca default profiles | `references/orca-profiles.toml` |
-   | Orca project role profiles | the delivered repo's `docs/agents/delivery.toml` `[hosts.orca.roles.<role>]`, changed through `flyingnobita-deliver-setup` |
+   | Orca project role profiles | the delivered repo's `docs/agents/delivery.toml` `[hosts.orca.roles.<role>]`, changed through `deliver-setup` (or `flyingnobita-deliver-setup`) |
 
    Done when every candidate names one fix type, one owning file and a
    **measure**: the observable in the next run's evidence that shows it worked.
@@ -133,7 +133,7 @@ for implementation; choosing to log a proposal is not that approval.
    The user may answer later. Until then keep the candidates in the ledger
    without writing external tracker entries or assuming consent from silence.
 
-   On acceptance, use the shared [outstanding-work procedure](../flyingnobita-deliver/references/outstanding.md):
+   On acceptance, use the shared [outstanding-work procedure](../deliver/references/outstanding.md):
    search for existing work, create/update the selected entries, read them back
    and return their links. Record each candidate's `tracker_refs` in the ledger.
    Logging proposed candidates keeps them `proposed`; implementation approval

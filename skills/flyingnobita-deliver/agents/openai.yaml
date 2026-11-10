@@ -1,4 +1,0 @@
-interface:
-  display_name: "flyingnobita-deliver"
-  short_description: "Orchestrate agent profiles from a problem to a merged change or PR"
-  default_prompt: "Use $flyingnobita-deliver to deliver this work end to end."

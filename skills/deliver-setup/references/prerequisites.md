@@ -12,17 +12,20 @@ Matt Pocock skills are checked under either their upstream names (`grilling`,
 `tdd`) or fleet-prefixed names (`mattpocock-grilling`, `mattpocock-tdd`). Where
 an upstream name collides with a harness built-in, such as Claude Code's
 `code-review`, check that the installed `SKILL.md` comes from `mattpocock/skills`.
+The suite's own companions (`deliver`, `deliver-setup`, `deliver-review`,
+`deliver-retro`) resolve the same way, so a fleet install under the
+`flyingnobita-` prefix counts too.
 
 ## Required on every host
 
 | Component | Check | Fix |
 |---|---|---|
 | Commit capability | Git identity configured (`git config user.name`, `user.email`); if a custom commit skill is configured in `delivery.toml`, that skill is installed | Configure `git config user.name` and `user.email`. If a custom commit skill is specified in `delivery.toml`, install it; otherwise safe built-in commit behavior is used |
-| Matt Pocock skills: `grilling`, `tdd`, `code-review`, `pr`, `diagnosing-bugs`, `domain-modeling`, `wizard`, `writing-for-agents` (or `mattpocock-*` prefixed) | each installed under either name | Install via `skills add mattpocock/skills --skill <name> -g` from <https://github.com/mattpocock/skills>. A miss is `degraded`: Deliver runs the fallback in [dependencies](../../flyingnobita-deliver/references/dependencies.md) |
+| Matt Pocock skills: `grilling`, `tdd`, `code-review`, `pr`, `diagnosing-bugs`, `domain-modeling`, `wizard`, `writing-for-agents` (or `mattpocock-*` prefixed) | each installed under either name | Install via `skills add mattpocock/skills --skill <name> -g` from <https://github.com/mattpocock/skills>. A miss is `degraded`: Deliver runs the fallback in [dependencies](../../deliver/references/dependencies.md) |
 | `git` | `git --version`; target repo has a remote default branch | Install git through the host's package manager |
 | `gh` | `gh auth status` succeeds for the account that will push | Install GitHub CLI (<https://cli.github.com>) and run `gh auth login`. Needed to fork, push, open and merge PRs |
 | Python 3.11+ | `python3 -c 'import tomllib'` | Install Python 3.11+. Needed by `deliver-runtime` and project TOML |
-| Bundled helpers | `python3 <deliver skill>/scripts/deliver-runtime.py select-host <<<'{}'` prints an `Error:` line, not a missing-file error; `deliver-orca-preflight.py` exists beside it | Reinstall the `flyingnobita-deliver` skill folder whole; the helpers ship inside it |
+| Bundled helpers | `python3 <deliver skill>/scripts/deliver-runtime.py select-host <<<'{}'` prints an `Error:` line, not a missing-file error; `deliver-orca-preflight.py` exists beside it | Reinstall the `deliver` skill folder whole (or `flyingnobita-deliver`); the helpers ship inside it |
 
 ## Required per host
 
@@ -39,7 +42,7 @@ Check only the selected host's rows.
 | Paseo | profiles `planner`, `implementer`, `reviewer`, `qa` | all four in `list_profiles` | Add the four role profiles in Paseo |
 
 For OpenCode V2, a current integration is necessary but insufficient: use the
-[full-TUI session-bound launch](../../flyingnobita-deliver/references/opencode-launch.md).
+[full-TUI session-bound launch](../../deliver/references/opencode-launch.md).
 Mini/headless clients do not run the native reporter. Verify session identity and
 working/completion in the no-edit smoke; a model reply alone does not pass.
 
@@ -55,5 +58,5 @@ fix, and accept a no without follow-up.
 | Planner extras: `research`, `codebase-design`, `prototype` (or `mattpocock-*` prefixed) | always | each installed under either name | As the Matt Pocock row. Without them the planner works in plain terms |
 | Input producers: `to-spec`, `to-tickets` (or `mattpocock-*` prefixed) | always | each installed under either name | As the Matt Pocock row. Lets Deliver take a spec or ticket graph as input |
 | Tracker setup: `setup-matt-pocock-skills` (or `mattpocock-setup-matt-pocock-skills`) | target repo lacks `## Agent skills` in `AGENTS.md` | skill installed under either name; section present | Offer to run it; Deliver otherwise offers GitHub, a local file or none |
-| Follow-up skills: `wayfinder` (or `mattpocock-wayfinder`), `flyingnobita-deliver-retro` (needs `retro` or `mattpocock-retro`) | always | each installed under either name | As the matching rows above |
+| Follow-up skills: `wayfinder` (or `mattpocock-wayfinder`), `deliver-retro` (or `flyingnobita-deliver-retro`; needs `retro` or `mattpocock-retro`) | always | each installed under either name | As the matching rows above |
 | Distinct reviewer harness | always | a second harness (`claude` or `codex`) is on `PATH` and authenticated | Install the other harness; a reviewer on the implementer's harness still works |

@@ -1,6 +1,6 @@
 ---
-name: flyingnobita-deliver
-description: Deliver a change end to end by orchestrating agent profiles - grill, plan, test-first implementation, review, QA, then merge or open a PR. Use when the user's message starts with "deliver" or names flyingnobita-deliver, whatever the size of the work.
+name: deliver
+description: Deliver a change end to end by orchestrating agent profiles - grill, plan, test-first implementation, review, QA, then merge or open a PR. Use when the user's message starts with "deliver" or names `deliver` (or `flyingnobita-deliver`), whatever the size of the work.
 ---
 
 # Deliver
@@ -41,8 +41,9 @@ The helpers `deliver-runtime` and `deliver-orca-preflight` ship with this skill 
 
 This skill builds on other skills and their file formats. When one is missing, or behaves differently from what [references/dependencies.md](references/dependencies.md) records, use that file's fallback and name the dependency in your report.
 
-For configuration or legacy migration use `flyingnobita-deliver-setup`; for a
-standalone branch review use `flyingnobita-deliver-review`. Questions about the
+For configuration or legacy migration use `deliver-setup` (or
+`flyingnobita-deliver-setup`); for a standalone branch review use `deliver-review`
+(or `flyingnobita-deliver-review`). Questions about the
 workflow use [references/workflow.md](references/workflow.md). Inspecting or
 editing this skill does not start a delivery.
 
@@ -147,4 +148,4 @@ tracker references. Include the central tracker link when configured, any
 unsaved count and where those items are retained. A tracker entry does not
 turn an unmet acceptance gate into completed work.
 
-End with a short report: what changed, the evidence (tests, red check, review, QA), the commit, the PR, the merged commit for a direct repo, any dependency fallback used, and the outstanding-work references. After a run with scope changes, review loops beyond the first, or fallbacks, suggest `/flyingnobita-deliver-retro` in this session. This message is the user's notification that the work is done.
+End with a short report: what changed, the evidence (tests, red check, review, QA), the commit, the PR, the merged commit for a direct repo, any dependency fallback used, and the outstanding-work references. After a run with scope changes, review loops beyond the first, or fallbacks, suggest `/deliver-retro` (or `/flyingnobita-deliver-retro`) in this session. This message is the user's notification that the work is done.

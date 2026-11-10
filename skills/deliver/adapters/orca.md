@@ -24,7 +24,8 @@ and run `hosts.orca.roles` tables: four roles for delivery, reviewer for
 review-only, reviewer/implementer for review-repair, and the selected profiles
 for setup. A project or run table replaces that role's default whole, so a
 changed harness never inherits another harness's model. If a default is
-unavailable, use `flyingnobita-deliver-setup` to choose among installed agents
+unavailable, use `deliver-setup` (or `flyingnobita-deliver-setup`) to choose
+among installed agents
 at the grilling stop. Omit unset model and effort flags; never silently
 substitute a model.
 Inspect launch permissions in Orca's actual settings/receipt. `worker-start`

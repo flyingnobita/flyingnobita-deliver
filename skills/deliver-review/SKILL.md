@@ -1,5 +1,5 @@
 ---
-name: flyingnobita-deliver-review
+name: deliver-review
 description: Review and repair an existing branch using delivery profiles and independent verification on Orca, Herdr or Paseo, without starting a full delivery or publishing it.
 ---
 
@@ -7,8 +7,8 @@ description: Review and repair an existing branch using delivery profiles and in
 
 Resolve target branch (default current), fixed-point SHA (default merge-base
 with the repo's default branch), spec and repo rules. Record the original target
-HEAD. Read [host detection](../flyingnobita-deliver/references/host-detection.md),
-the selected adapter and [configuration](../flyingnobita-deliver/references/configuration.md).
+HEAD. Read [host detection](../deliver/references/host-detection.md),
+the selected adapter and [configuration](../deliver/references/configuration.md).
 For a request to review only, run the reviewer and report; dispatch no repairs.
 
 For review-and-repair, establish allowed scope and test seams from existing
@@ -18,14 +18,14 @@ approval for the original implementation or for shipping.
 
 Create the appropriate `review-only` or `review-repair` purpose and record
 `approved.review` (plus repair `seams` when applicable) using
-[run records](../flyingnobita-deliver/references/run-record.md). Record the
+[run records](../deliver/references/run-record.md). Record the
 user's actual review request and settled scope; no full-delivery approval is needed.
 
 Create an isolated review worktree/branch from the recorded target HEAD using
 the adapter. Preserve a target checked out elsewhere and never switch or edit
 the user's checkout. The reviewer reads the diff from the immutable fixed point.
 Run the baseline, then follow the shared
-[review loop](../flyingnobita-deliver/references/review.md), saving artifacts
+[review loop](../deliver/references/review.md), saving artifacts
 outside disposable worktrees. All fixes go through an implementer following
 repository commit rules (or a configured custom commit skill). If baseline failures predate repairs, report them
 and require a scope decision before claiming a clean result.

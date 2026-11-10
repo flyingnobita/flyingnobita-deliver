@@ -34,9 +34,10 @@ Repeating setup with unchanged decisions should make no file changes.
 
 The four `flyingnobita-orch-*` skill directories and worker templates were
 removed from source on 2026-10-24 after bounded native acceptance and both-host
-legacy-run disposition. Use `flyingnobita-deliver-setup` for setup,
-`flyingnobita-deliver` for implementation, `flyingnobita-deliver-review` for
-review/repair and the [workflow guide](workflow.md) for questions.
+legacy-run disposition. Use `deliver-setup` (or `flyingnobita-deliver-setup`)
+for setup, `deliver` (or `flyingnobita-deliver`) for implementation,
+`deliver-review` (or `flyingnobita-deliver-review`) for review/repair and the
+[workflow guide](workflow.md) for questions.
 
 All new workers follow repository commit rules directly (or an explicitly configured
 custom commit skill). A retired template read no longer satisfies the Claude, Codex

@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-11, 2026 - 01:43 AM +08 - Publish the four skills as `deliver`, `deliver-setup`, `deliver-review` and `deliver-retro`; existing installs must remove and re-add the suite because the lock keys change, and the suite still resolves the `flyingnobita-` prefixed names.
+
 - Nov-11, 2026 - 12:48 AM +08 - README now opens with the suite's purpose (Matt Pocock's skills across Herdr, Paseo and Orca, with per-role harness, model and effort) and lists the delivery roles.
 
 - Nov-11, 2026 - 12:35 AM +08 - Rewrite the README in plain, terse prose: one install block, prerequisites as a flat list, run behavior stated directly, and a link to the full configuration reference.

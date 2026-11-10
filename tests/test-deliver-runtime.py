@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT = (Path(__file__).resolve().parents[1] / 'skills/flyingnobita-deliver/scripts'
+SCRIPT = (Path(__file__).resolve().parents[1] / 'skills/deliver/scripts'
           / 'deliver-runtime.py')
 
 

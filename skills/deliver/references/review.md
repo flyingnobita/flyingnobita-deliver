@@ -1,6 +1,7 @@
 # Review and repair
 
-Shared by the delivery pipeline and standalone `flyingnobita-deliver-review`.
+Shared by the delivery pipeline and standalone `deliver-review` (or
+`flyingnobita-deliver-review`).
 Keep the fixed-point SHA immutable through every iteration. The review result
 is findings plus evidence; worker completion is not a clean-review verdict.
 
