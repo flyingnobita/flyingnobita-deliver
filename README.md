@@ -50,7 +50,7 @@ skills add flyingnobita/flyingnobita-deliver      # current project only
 This installs from `main`. To pin a release, add the tag:
 
 ```bash
-skills add flyingnobita/flyingnobita-deliver#v0.1.2 -g
+skills add flyingnobita/flyingnobita-deliver#v0.2.0 -g
 ```
 
 To update, pass the installed skill names, not the repo slug:
