@@ -74,7 +74,7 @@ for implementation; choosing to log a proposal is not that approval.
    4. **Project rule**: the delivered repo's `AGENTS.md` `## Delivery` section,
       `docs/agents/delivery.toml`, or a repo check from step 1.
    5. **Dependency**: an upstream `mattpocock-*` skill; record the contract
-      change in `references/dependencies.md`.
+      change in [dependencies](../flyingnobita-deliver/references/dependencies.md).
 
    | Behaviour | Owning file under `skills/flyingnobita-deliver/` |
    |---|---|

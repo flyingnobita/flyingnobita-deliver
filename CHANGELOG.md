@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-10, 2026 - 08:13 PM +08 - Fix the Retro dependency fix type to point at the delivery suite's dependency record instead of a nonexistent file under the retro skill.
+
 - Nov-10, 2026 - 05:03 PM +08 - Release v0.1.1: Align Herdr QA default profile with production (Codex gpt-6.1-sol/medium in auto mode) to eliminate drift before fleet cutover.
 
 - Nov-10, 2026 - 04:48 PM +08 - Release v0.1.0 documentation repair: Ensure Orca executable resolution explicitly prevents bare orca GNOME screen reader collision across all entrypoints, and verify disposable local installation receipt.
