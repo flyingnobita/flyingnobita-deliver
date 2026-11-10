@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-10, 2026 - 09:27 PM +08 - Release v0.1.2: The retro skill now checks the upstream retro contract in its own step 1, and its dependency fix type points at the delivery suite's real dependency record.
+
 - Nov-10, 2026 - 08:13 PM +08 - Check the upstream retro contract inside the retro's own step 1: the presentation boundary and category overlap with the C and R checks are verified against the installed `retro`/`mattpocock-retro` when it loads, and the contract now lives with the retro skill instead of the delivery dependency record.
 
 - Nov-10, 2026 - 08:13 PM +08 - Fix the Retro dependency fix type to point at the delivery suite's dependency record instead of a nonexistent file under the retro skill.
