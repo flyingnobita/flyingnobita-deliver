@@ -16,15 +16,23 @@ Setup and standalone review use the purpose-specific authorization in
 [run-record.md](../references/run-record.md); normal delivery retains its
 brief/plan/seam approvals. Use role `smoke` for no-edit setup tasks.
 
-Load [herdr-profiles.toml](../references/herdr-profiles.toml), project
-`docs/agents/delivery.toml` if present, and explicit per-run overrides. Read the shared [configuration](../references/configuration.md) first. Extract
-only planner/implementer/reviewer/qa tables for profile validation; other host
-and delivery tables are not profile inputs. Each role configuration
-uses role tables with `harness`, `model`, `effort`, `mode`; roles are
-`planner`, `implementer`, `reviewer`, `qa`. Decode TOML with Python `tomllib` and
-pass the tables as JSON `defaults`, `project`, `run` to `deliver-runtime profiles`.
-It merges fields in that order and validates each whole role. Preserve requested
-and effective profiles in the run. Missing required roles block setup.
+Load [herdr-profiles.toml](../references/herdr-profiles.toml) as `defaults` and
+read the project layer from `[hosts.herdr.roles.<role>]` tables in the project's
+`docs/agents/delivery.toml`. Decode TOML with Python `tomllib` and send the
+parsed document to `deliver-runtime herdr-project-roles`; it returns the
+`roles` project layer, the detected `layout` and any `warning`. Show a warning
+to the user. A file with only old top-level `[planner]`, `[implementer]`,
+`[reviewer]` and `[qa]` tables and no `[hosts.herdr.roles.*]` still yields the
+same project layer, with a warning that the layout is outdated and that
+`deliver-setup` (or `flyingnobita-deliver-setup`) moves the tables. Read the shared
+[configuration](../references/configuration.md) first. Extract only
+planner/implementer/reviewer/qa tables for profile validation; other host and
+delivery tables are not profile inputs. Each role configuration uses role tables
+with `harness`, `model`, `effort`, `mode`; roles are `planner`, `implementer`,
+`reviewer`, `qa`. Pass the tables as JSON `defaults`, `project`, `run` to
+`deliver-runtime profiles`. It merges fields in that order and validates each
+whole role. Preserve requested and effective profiles in the run. Missing
+required roles block setup.
 
 The helper emits native argv, not shell command strings. OpenCode first returns
 `argv: null` pending a matching native session; follow

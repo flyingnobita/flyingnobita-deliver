@@ -93,6 +93,7 @@ for implementation; choosing to log a proposal is not that approval.
    | Concurrency, landing and role settings | `references/configuration.md` |
    | Native operations, waits, permissions, recovery | `adapters/<host>.md` |
    | Herdr default profiles | `references/herdr-profiles.toml` |
+   | Herdr project role profiles | the delivered repo's `docs/agents/delivery.toml` `[hosts.herdr.roles.<role>]`, changed through `deliver-setup` (or `flyingnobita-deliver-setup`) |
    | Paseo shared profiles | Paseo profile configuration (daemon / MCP) |
    | Orca default profiles | `references/orca-profiles.toml` |
    | Orca project role profiles | the delivered repo's `docs/agents/delivery.toml` `[hosts.orca.roles.<role>]`, changed through `deliver-setup` (or `flyingnobita-deliver-setup`) |

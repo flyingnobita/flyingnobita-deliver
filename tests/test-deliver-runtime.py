@@ -5,6 +5,7 @@ import hashlib
 import os
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -352,6 +353,36 @@ class RuntimeTests(unittest.TestCase):
                                           '--dangerously-skip-permissions'])
         for override in [{'mode': 'full-access'}, {'effort': 'magic'}]:
             self.call('profiles', {'defaults': {'implementer': {**agy, **override}}}, ok=False)
+
+    def test_herdr_project_roles_read_host_tables_and_warn_on_legacy_layout(self):
+        defaults = tomllib.loads((SCRIPT.parents[1] / 'references/herdr-profiles.toml').read_text())
+        overrides = {'planner': {'effort': 'xhigh'},
+                     'qa': {'harness': 'claude', 'model': 'claude-opus-5-5',
+                            'effort': 'high', 'mode': 'plan'}}
+        host_config = {'delivery': {'max_workers': 2}, 'hosts': {'herdr': {'roles': overrides}}}
+        legacy_config = {'delivery': {'max_workers': 2}, 'hosts': {'herdr': {}}, **overrides}
+        current = self.call('herdr-project-roles', {'config': host_config})
+        self.assertEqual((current['layout'], current['warning'], current['roles']),
+                         ('hosts', None, overrides))
+        legacy = self.call('herdr-project-roles', {'config': legacy_config})
+        self.assertEqual((legacy['layout'], legacy['roles']), ('legacy', overrides))
+        self.assertIn('[hosts.herdr.roles.<role>]', legacy['warning'])
+        self.assertIn('deliver-setup', legacy['warning'])
+        def effective(project):
+            return self.call('profiles', {'defaults': defaults, 'project': project})
+        self.assertEqual(effective(current['roles']), effective(legacy['roles']))
+        merged = effective(current['roles'])
+        self.assertEqual(merged['planner']['profile'], {**defaults['planner'], 'effort': 'xhigh'})
+        self.assertEqual(merged['qa']['profile']['harness'], 'claude')
+        self.assertEqual(merged['reviewer']['profile'], defaults['reviewer'])
+        self.assertEqual(self.call('herdr-project-roles', {'config': {}}),
+                         {'layout': 'defaults', 'roles': {}, 'warning': None})
+        for invalid in ({'hosts': {'herdr': {'roles': {'smoke': {}}}}},
+                        {'hosts': {'herdr': {'roles': {'qa': 'wrong'}}}},
+                        {'hosts': {'herdr': {'roles': []}}},
+                        {'hosts': 'wrong'}, {'planner': 'wrong'}):
+            self.assertNotIn('Traceback',
+                             self.call('herdr-project-roles', {'config': invalid}, ok=False))
 
     def test_omp_profiles_map_native_flags_and_keep_settings(self):
         omp = {'harness': 'omp', 'model': 'openai/gpt-5.2', 'effort': 'high', 'mode': 'write'}

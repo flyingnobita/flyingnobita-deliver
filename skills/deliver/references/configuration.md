@@ -29,9 +29,11 @@ harness = "claude"
 harness = "codex"
 ```
 
-The example shows the file's shape; its harnesses are not defaults. Orca's
-installed defaults are in [orca-profiles.toml](orca-profiles.toml) and Herdr's
-in [herdr-profiles.toml](herdr-profiles.toml).
+The example shows the file's shape; its harnesses are not defaults. Herdr role
+tables use the same shape under `[hosts.herdr.roles.<role>]` and take
+`harness`, `model`, `effort` and `mode`. Orca's installed defaults are in
+[orca-profiles.toml](orca-profiles.toml) and Herdr's in
+[herdr-profiles.toml](herdr-profiles.toml).
 
 ## Keys
 
@@ -61,9 +63,14 @@ in [herdr-profiles.toml](herdr-profiles.toml).
   Runtime-owned launch permissions are inspected, never silently changed.
   `[hosts.orca]` `worktree_setup` is `run`, `skip` or `inherit`, passed as
   `--setup` to `worktree create`.
-- **Herdr:** preserve existing `[planner]`, `[implementer]`, `[reviewer]`,
-  `[qa]` project tables. Pass only those role tables to `profiles`; `[delivery]`
-  and `[hosts]` are not role names. Harnesses are `claude`, `codex`, `agy`, `pi`,
+- **Herdr:** `[hosts.herdr.roles.<role>]` uses required `harness` plus optional
+  `model`, `effort` and `mode`. Roles are planner, implementer, reviewer and qa;
+  `[delivery]` and `[hosts]` are not role names. Fields merge over the matching
+  [Herdr default](herdr-profiles.toml) field by field. A file that has only
+  legacy top-level `[planner]`, `[implementer]`, `[reviewer]` and `[qa]` tables
+  and no `[hosts.herdr.roles.*]` still reads them the same way, but warns that
+  the layout is outdated and points to `deliver-setup` (or
+  `flyingnobita-deliver-setup`) to move them. Harnesses are `claude`, `codex`, `agy`, `pi`,
   `omp` and `opencode`; the adapter holds each one's supported roles, mode values
   and verified flags. Herdr's defaults and native validation remain in its
   adapter. Pass resolved `max_workers` as `concurrency` to `create`.

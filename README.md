@@ -153,23 +153,23 @@ effort = "low"
 
 ### Herdr
 
-Use top-level role tables. Each takes `harness`, `model`, `effort` and `mode`:
+Use `[hosts.herdr.roles.<role>]` tables. Each takes `harness`, `model`, `effort` and `mode`:
 
 ```toml
-[planner]
+[hosts.herdr.roles.planner]
 harness = "pi"
 model = "opencode-go/kimi-k3.1-pro"
 effort = "high"
 mode = "default"
 
-[qa]
+[hosts.herdr.roles.qa]
 harness = "codex"
 model = "gpt-6.1-sol"
 effort = "medium"
 mode = "auto"
 ```
 
-Fields you set are merged over the [defaults](skills/deliver/references/herdr-profiles.toml), so you only list what you change. Valid `mode` values depend on the harness; see the [Herdr adapter](skills/deliver/adapters/herdr.md).
+Fields you set are merged over the [defaults](skills/deliver/references/herdr-profiles.toml), so you only list what you change. A file that still has only the old top-level `[planner]`, `[implementer]`, `[reviewer]` and `[qa]` tables is read the same way, with a warning; `deliver-setup` (or `flyingnobita-deliver-setup`) moves them under `[hosts.herdr.roles.*]`. Valid `mode` values depend on the harness; see the [Herdr adapter](skills/deliver/adapters/herdr.md).
 
 ### Paseo
 

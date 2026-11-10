@@ -96,12 +96,38 @@ def migrate_orca(data):
             ]}
 
 
+DELIVERY_ROLES = ('planner', 'implementer', 'reviewer', 'qa')
+
+
+def herdr_project_roles(data):
+    """Herdr's project layer lives under [hosts.herdr.roles.<role>]; legacy top-level tables still read."""
+    config = data['config']
+    require(isinstance(config, dict), 'project config must be an object')
+    hosts = config.get('hosts', {})
+    require(isinstance(hosts, dict), 'project hosts must be a table')
+    herdr = hosts.get('herdr', {})
+    require(isinstance(herdr, dict), 'project hosts.herdr must be a table')
+    if 'roles' in herdr:
+        roles = herdr['roles']
+        require(isinstance(roles, dict) and set(roles) <= set(DELIVERY_ROLES)
+                and all(isinstance(table, dict) for table in roles.values()),
+                'Herdr roles must be known role tables')
+        return {'layout': 'hosts', 'roles': roles, 'warning': None}
+    legacy = {role: config[role] for role in DELIVERY_ROLES if role in config}
+    require(all(isinstance(table, dict) for table in legacy.values()), 'Herdr role must be a table')
+    warning = None
+    if legacy:
+        warning = ('docs/agents/delivery.toml uses outdated top-level role tables; '
+                   'move them under [hosts.herdr.roles.<role>] with deliver-setup')
+    return {'layout': 'legacy' if legacy else 'defaults', 'roles': legacy, 'warning': warning}
+
+
 def profiles(data):
     layers = [data.get(key, {}) for key in ('defaults', 'project', 'run')]
     result = {}
     sessions = data.get('opencode_sessions', {})
     require(isinstance(sessions, dict), 'OpenCode session bindings must be an object')
-    roles = {'planner', 'implementer', 'reviewer', 'qa'}
+    roles = set(DELIVERY_ROLES)
     require(all(isinstance(layer, dict) and set(layer) <= roles for layer in layers),
             'unknown delivery role')
     for role in set().union(*layers):
@@ -987,6 +1013,7 @@ def main():
     if command == 'orca-settle':
         command = 'orca-report'
     standalone = {'select': select, 'select-host': select_hosts, 'profiles': profiles, 'wait': wait,
+                  'herdr-project-roles': herdr_project_roles,
                   'create': create, 'migrate-orca': migrate_orca, 'orca-task': orca_task}
     result = standalone[command](data) if command in standalone else run_command(command, data)
     print(json.dumps(result))
