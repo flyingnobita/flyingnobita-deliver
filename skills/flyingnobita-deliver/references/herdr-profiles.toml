@@ -1,5 +1,6 @@
 # Herdr default role profiles.
-# All four roles run Pi against the built-in opencode-go provider, set 2026-10-30.
+# Planner, implementer and reviewer run Pi against the built-in opencode-go provider, set 2026-10-30.
+# QA runs Codex gpt-6.1-sol/medium in auto mode, set 2026-11-10.
 # Herdr defaults are independent after initialization. Availability needs a live check.
 # Other harnesses: omp takes model/thinking/approval-mode (effort and mode are
 # native tokens); opencode binds an explicit native model/variant session, then
@@ -24,7 +25,7 @@ effort = "high"
 mode = "default"
 
 [qa]
-harness = "pi"
-model = "opencode-go/deepseek-v4.1-flash"
-effort = "high"
-mode = "default"
+harness = "codex"
+model = "gpt-6.1-sol"
+effort = "medium"
+mode = "auto"
