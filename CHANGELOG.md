@@ -2,6 +2,8 @@
 
 - Nov-11, 2026 - 01:43 AM +08 - Publish the four skills as `deliver`, `deliver-setup`, `deliver-review` and `deliver-retro`; existing installs must remove and re-add the suite because the lock keys change, and the suite still resolves the `flyingnobita-` prefixed names.
 
+- Nov-11, 2026 - 01:50 AM +08 - Setup writes Herdr role profiles only as `[hosts.herdr.roles.<role>]` tables, and offers to move old top-level role tables there after showing the change, keeping every value, unknown key and unrelated table.
+
 - Nov-11, 2026 - 01:42 AM +08 - Read Herdr role profiles from `[hosts.herdr.roles.<role>]` tables in `docs/agents/delivery.toml`, matching Orca; a file with only old top-level role tables still loads the same profiles with a warning that points to `deliver-setup` (or `flyingnobita-deliver-setup`).
 
 - Nov-11, 2026 - 12:48 AM +08 - README now opens with the suite's purpose (Matt Pocock's skills across Herdr, Paseo and Orca, with per-role harness, model and effort) and lists the delivery roles.

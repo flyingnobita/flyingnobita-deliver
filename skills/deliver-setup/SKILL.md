@@ -1,6 +1,6 @@
 ---
 name: deliver-setup
-description: Check delivery prerequisites and offer fixes, configure delivery profiles and project defaults, validate a delivery host, or migrate legacy Orca orchestration settings to `deliver` (or `flyingnobita-deliver`).
+description: Check delivery prerequisites and offer fixes, configure delivery profiles and project defaults, validate a delivery host, migrate legacy Orca orchestration settings to `deliver` (or `flyingnobita-deliver`), or move Herdr top-level role tables under [hosts.herdr.roles.<role>].
 ---
 
 # Set up delivery
@@ -37,7 +37,10 @@ interview. Inside Deliver, join unresolved choices to its grilling stop.
    in [run records](../deliver/references/run-record.md). Orca and
    Herdr smoke jobs use role `smoke` with each selected profile in turn.
 6. Back up any existing project config. Write only approved project values,
-   preserving unknown keys and unrelated host tables. Paseo profiles remain in
+   preserving unknown keys and unrelated host tables. On Herdr, write role
+   profiles only as `[hosts.herdr.roles.<role>]` tables, and migrate old
+   top-level role tables as described in [Herdr role table
+   migration](#herdr-role-table-migration). Paseo profiles remain in
    Paseo; report required changes there rather than overwriting them. Keep
    legacy files and migration evidence while old runs may need them.
 7. Add a concise pointer to `docs/agents/delivery.toml` in the repo's `AGENTS.md`
@@ -51,3 +54,24 @@ verified result or explicit blocker, and every setup resource is removed or
 named as retained. Report the prerequisite table, changes, effective settings,
 permissions, smoke evidence and migration decisions. Commit through
 repository commit rules (or a configured custom commit skill); publication is separate.
+
+## Herdr role table migration
+
+A Herdr project layer lives under `[hosts.herdr.roles.<role>]`. When
+`docs/agents/delivery.toml` has old top-level `[planner]`, `[implementer]`,
+`[reviewer]` or `[qa]` tables and no `[hosts.herdr.roles.*]`, offer to move
+them:
+
+1. Back up the file and read the effective profiles first with `deliver-runtime
+   herdr-project-roles` and `profiles`, passing
+   [herdr-profiles.toml](../deliver/references/herdr-profiles.toml)
+   as `defaults`.
+2. Move each of the four role tables under `[hosts.herdr.roles.<role>]`, keeping
+   every key and value, including unknown keys.
+3. Leave `[delivery]`, `[hosts]`, other host tables, comments and all unrelated
+   content in place.
+4. Show the proposed file or its diff and get approval before writing it.
+5. Repeat the profile reads and confirm the effective Herdr profiles are
+   unchanged and no layout warning is reported.
+6. Confirm no top-level role table remains; keep the backup as migration
+   evidence while old runs may need it.
