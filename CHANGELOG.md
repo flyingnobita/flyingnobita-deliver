@@ -1,5 +1,9 @@
 # Changes
 
+- Nov-11, 2026 - 12:48 AM +08 - README now opens with the suite's purpose (Matt Pocock's skills across Herdr, Paseo and Orca, with per-role harness, model and effort) and lists the delivery roles.
+
+- Nov-11, 2026 - 12:35 AM +08 - Rewrite the README in plain, terse prose: one install block, prerequisites as a flat list, run behavior stated directly, and a link to the full configuration reference.
+
 - Nov-10, 2026 - 09:27 PM +08 - Release v0.1.2: The retro skill now checks the upstream retro contract in its own step 1, and its dependency fix type points at the delivery suite's real dependency record.
 
 - Nov-10, 2026 - 08:13 PM +08 - Check the upstream retro contract inside the retro's own step 1: the presentation boundary and category overlap with the C and R checks are verified against the installed `retro`/`mattpocock-retro` when it loads, and the contract now lives with the retro skill instead of the delivery dependency record.

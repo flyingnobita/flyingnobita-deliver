@@ -1,120 +1,113 @@
-# Delivery Suite (`flyingnobita-deliver`)
+# flyingnobita-deliver skills
 
-An evidence-bound multi-agent delivery orchestration suite for autonomous software engineering. Coordinates end-to-end delivery runs from an agreed brief through grilling, planning, test-first implementation (TDD), independent multi-axis review, QA, and verified shipping.
+Runs [Matt Pocock's skills](https://github.com/mattpocock/skills) (`grilling`, `tdd`, `code-review`, `pr` and the rest) across a team of coding agents. It works on three agent hosts, [Herdr](https://herdr.dev), [Paseo](https://paseo.sh) and [Orca](https://www.onorca.dev), and each role can run on its own harness (Claude Code, Codex and so on), model and effort level. A delivery goes from brief to merged code, and the orchestrator re-checks every agent's work before it ships.
 
-## Companion Skills
+## Roles
 
-The suite consists of four companion skills:
+- **Orchestrator:** your own session, in Claude Code or Codex (Orca also accepts Antigravity). Grills you on the brief, starts the other roles, checks their evidence and ships.
+- **Planner:** reads the code and the agreed brief, then splits the work into ordered slices. Read-only.
+- **Implementer:** builds each slice test-first and commits.
+- **Reviewer:** reviews the branch against the repo's standards and the spec.
+- **QA:** tests the change in a live environment, when you ask for it.
 
-| Skill | Purpose | Invocation |
+Each role except the orchestrator gets its own profile. For example:
+
+| Role | Harness | Model | Effort |
+|---|---|---|---|
+| Planner | `claude` | `claude-opus-5-5` | `high` |
+| Implementer | `pi` | `opencode-go/deepseek-v4.1-flash` | `high` |
+| Reviewer | `codex` | `gpt-6.1-sol` | `low` |
+| QA | `codex` | `gpt-6.1-sol` | `low` |
+
+Supported harnesses by host:
+
+| Host | Harnesses |
+|---|---|
+| Herdr | `claude`, `codex`, `agy`, `pi`, `omp`, `opencode` |
+| Orca | any agent Orca can launch, such as `claude`, `codex` and `pi` |
+| Paseo | your Paseo agent profiles named `planner`, `implementer`, `reviewer` and `qa`, each with its own provider and model |
+
+## Skills
+
+| Skill | What it does | How to run it |
 |---|---|---|
-| [`flyingnobita-deliver`](skills/flyingnobita-deliver/SKILL.md) | Coordinates full end-to-end delivery runs | `deliver <input>` (issue URL, `#N`, spec, or brief) |
-| [`flyingnobita-deliver-setup`](skills/flyingnobita-deliver-setup/SKILL.md) | Verifies prerequisites, configures role profiles, and validates hosts | `/flyingnobita-deliver-setup` |
-| [`flyingnobita-deliver-review`](skills/flyingnobita-deliver-review/SKILL.md) | Standalone branch review and repair across Standards and Spec axes | `/flyingnobita-deliver-review` |
-| [`flyingnobita-deliver-retro`](skills/flyingnobita-deliver-retro/SKILL.md) | Retrospective analysis of coordination and role efficiency across delivery runs | `/flyingnobita-deliver-retro` |
+| [`flyingnobita-deliver`](skills/flyingnobita-deliver/SKILL.md) | Runs a full delivery | `deliver <input>` (issue URL, `#N`, spec or brief) |
+| [`flyingnobita-deliver-setup`](skills/flyingnobita-deliver-setup/SKILL.md) | Checks prerequisites, configures role profiles, validates hosts | `/flyingnobita-deliver-setup` |
+| [`flyingnobita-deliver-review`](skills/flyingnobita-deliver-review/SKILL.md) | Reviews and repairs an existing branch against standards and spec | `/flyingnobita-deliver-review` |
+| [`flyingnobita-deliver-retro`](skills/flyingnobita-deliver-retro/SKILL.md) | Looks back over past runs and proposes fixes to the skills and profiles | `/flyingnobita-deliver-retro` |
 
-## Installation
+## Install
 
-Install the suite using the [Skills CLI](https://github.com/vercel-labs/skills) (`skills` or `npx skills`):
-
-### Global Installation (recommended)
-
-Install all four companion skills globally for your coding agents:
+With the [Skills CLI](https://github.com/vercel-labs/skills) (`skills`, or `npx skills`):
 
 ```bash
-skills add flyingnobita/flyingnobita-deliver -g
+skills add flyingnobita/flyingnobita-deliver -g   # global
+skills add flyingnobita/flyingnobita-deliver      # current project only
 ```
 
-Or using `npx`:
+This installs from `main`. To pin a release, add the tag:
 
 ```bash
-npx skills add flyingnobita/flyingnobita-deliver -g
+skills add flyingnobita/flyingnobita-deliver#v0.1.2 -g
 ```
 
-### Repository-Local Installation
-
-To install only for the current project:
+To update, pass the installed skill names, not the repo slug:
 
 ```bash
-skills add flyingnobita/flyingnobita-deliver
-```
-
-### Updating
-
-The Skills CLI `update` command accepts installed skill names rather than repository slugs:
-
-```bash
-# Update the four companion skills globally
 skills update flyingnobita-deliver flyingnobita-deliver-setup flyingnobita-deliver-review flyingnobita-deliver-retro -g
-
-# Or update all installed global skills
-skills update -g
-
-# Or perform an idempotent source reinstall from the latest default branch tip
-skills add flyingnobita/flyingnobita-deliver -g -y
 ```
 
-### Branch Tip vs. Tagged Releases
+`skills update -g` updates everything, and rerunning `skills add ... -g -y` reinstalls from the tip of `main`.
 
-- **Branch-tip installation**: Running `skills add flyingnobita/flyingnobita-deliver` installs from the default branch tip (`main`), receiving the latest verified changes on subsequent reinstalls or updates.
-- **Tagged releases**: GitHub Releases (e.g. `v0.1.0`) represent immutable versioned releases accompanied by changelogs and release notes. To pin or install a specific release milestone rather than the branch tip, append the tag ref:
-  ```bash
-  skills add flyingnobita/flyingnobita-deliver#v0.1.0 -g
-  ```
+## Usage
+
+Start a session inside Herdr, Paseo or Orca, then type `deliver` followed by an issue, a spec or a plain description:
+
+```text
+deliver #42
+deliver https://github.com/owner/repo/issues/42
+deliver add a --dry-run flag to the sync command
+```
+
+It asks you questions about the brief, waits for you to approve a plan, then builds, reviews and ships. You get a report at the end.
 
 ## Prerequisites
 
-- **Environment**: Linux or macOS.
-- **Tools**:
-  - `git` (with configured `user.name` and `user.email`)
-  - `gh` ([GitHub CLI](https://cli.github.com), authenticated via `gh auth login`)
-  - Python 3.11+ (standard library with `tomllib` and `unittest`)
-- **Delivery Hosts** (at least one confirmed):
-  - [Herdr](https://github.com/herdrdev/herdr) ([herdr.dev](https://herdr.dev))
-  - [Paseo](https://github.com/getpaseo/paseo) ([paseo.sh](https://paseo.sh))
-  - [Orca](https://github.com/stablyai/orca) (macOS: `brew install --cask stablyai/orca/orca`; Linux: `stably-orca-bin` or `orca-ide-bin`; [onorca.dev](https://www.onorca.dev)) — Orca bundles its own version-matched orchestration guide, loaded directly via `ORCA skills get orchestration --full` without requiring an external skill download. On Linux outside an Orca-managed terminal, resolve the CLI as `orca-ide` (never bare `orca`, which starts the GNOME screen reader).
-- **Dependency Skills**:
-  The suite relies on Matt Pocock's workflow skills, resolved under either their upstream names or `mattpocock-` prefixed names:
-  - `grilling` (or `mattpocock-grilling`)
-  - `tdd` (or `mattpocock-tdd`)
-  - `code-review` (or `mattpocock-code-review`)
-  - `pr` (or `mattpocock-pr`)
-  - `diagnosing-bugs` (or `mattpocock-diagnosing-bugs`)
-  - `domain-modeling` (or `mattpocock-domain-modeling`)
-  - `wizard` (or `mattpocock-wizard`)
-  - `writing-for-agents` (or `mattpocock-writing-for-agents`)
+- Linux or macOS
+- `git` with `user.name` and `user.email` set
+- [`gh`](https://cli.github.com), logged in with `gh auth login`
+- Python 3.11+ (standard library only)
+- At least one delivery host:
+  - Herdr
+  - Paseo
+  - Orca: `brew install --cask stablyai/orca/orca` on macOS, `stably-orca-bin` or `orca-ide-bin` on Linux. On Linux outside an Orca terminal, call the CLI as `orca-ide`. Bare `orca` starts the GNOME screen reader.
+- Matt Pocock's skills: `skills add mattpocock/skills -g`. The suite uses `grilling`, `tdd`, `code-review`, `pr`, `diagnosing-bugs`, `domain-modeling`, `wizard` and `writing-for-agents`, and also finds them under a `mattpocock-` prefix.
 
-  Install them from upstream:
-  ```bash
-  skills add mattpocock/skills -g
-  ```
+`/flyingnobita-deliver-setup` checks all of this.
 
-Run `/flyingnobita-deliver-setup` to verify prerequisites and inspect your environment.
+## How a run works
 
-## Workflow Overview
+1. Intake: turn the input into a brief.
+2. Setup: create the workspace and record a baseline.
+3. Grilling: settle every open question with you.
+4. Plan: the planner proposes slices and you approve them.
+5. Build: the implementer builds each slice test-first.
+6. Review: the reviewer checks standards and spec until clean.
+7. QA: test the change in a live environment, if you asked for it.
+8. Ship: merge directly, or open a PR on an upstream repo.
+9. Report: summarize the evidence and update the issue tracker.
 
-Every delivery run coordinates roles through a deterministic pipeline:
+The run stops for you at the grilling round, plan approval, any scope change, steps only you can do (credentials, CI secrets), and the PR draft for an upstream repo. Everything else runs unattended.
 
-```mermaid
-flowchart TD
-    Intake["1. Intake (Brief)"] --> Setup["2. Setup (Workspace & Baseline)"]
-    Setup --> Grilling{"3. Grilling Stop"}
-    Grilling --> Plan{"4. Plan Stop"}
-    Plan --> Build["5. Build (TDD slices)"]
-    Build --> Review["6. Review (Standards & Spec)"]
-    Review --> QA["7. QA (Live Environment)"]
-    QA --> Ship["8. Ship (Direct / Upstream PR)"]
-    Ship --> Report["9. Report & Tracker Sync"]
-```
+The orchestrator doesn't trust agent reports. It reruns the tests, confirms new tests fail on the base commit, runs the linters and checks review findings itself.
 
-- **Stops**: The orchestrator only pauses to wait for user interaction at designated stops: Grilling, Plan approval, Scope changes, and upstream PR review. All other steps execute autonomously.
-- **Evidence-based**: Role reports never substitute for independent verification. The orchestrator independently verifies tests, red checks on base commits, linters, and review findings.
-- **Repository Authority**: Write access never grants merge authority. Direct merges require explicit repository consent (`AGENTS.md` autonomous delivery rule) or session approval, and branch protections are always respected.
-- **Commit Rules**: Built-in safe commit behaviors follow the target repository's conventions. A custom commit skill (such as `flyingnobita-clean-commit`) can be optionally configured.
+Having write access isn't enough to merge. A direct merge needs the autonomous delivery rule in the repo's `AGENTS.md` or your approval in the session, and branch protection always applies.
+
+Commits follow the target repo's conventions. Set `commit_skill` to use your own commit skill instead, such as `flyingnobita-clean-commit`.
 
 ## Configuration
 
-Project configuration is optional and lives in `docs/agents/delivery.toml`:
+Optional, in `docs/agents/delivery.toml`. The `[delivery]` table works on every host:
 
 ```toml
 [delivery]
@@ -122,23 +115,63 @@ max_workers = 3
 human_schedule = "normal" # normal | front-load | back-load
 landing = "standard"      # standard | leave | pr
 commit_skill = ""         # optional custom commit skill name
+```
 
+Role profiles are set differently on each host. Every setting and value is explained in [configuration.md](skills/flyingnobita-deliver/references/configuration.md).
+
+### Orca
+
+To set the roles to the profiles in the table above, add a `[hosts.orca.roles.<role>]` table per role:
+
+```toml
 [hosts.orca.roles.planner]
-harness = "codex"
+harness = "claude"
+model = "claude-opus-5-5"
+effort = "high"
 
 [hosts.orca.roles.implementer]
-harness = "codex"
+harness = "pi"
+model = "opencode-go/deepseek-v4.1-flash"
+effort = "high"
 
 [hosts.orca.roles.reviewer]
-harness = "claude"
+harness = "codex"
+model = "gpt-6.1-sol"
+effort = "low"
 
 [hosts.orca.roles.qa]
 harness = "codex"
+model = "gpt-6.1-sol"
+effort = "low"
 ```
 
-## Running Tests
+`model` and `effort` are optional; leave them out to use Orca's defaults, but `effort` needs an explicit `model`. A role table you set replaces that role's [default](skills/flyingnobita-deliver/references/orca-profiles.toml) whole.
 
-The test suite exercises the runtime and preflight boundaries using standard Python `unittest`:
+### Herdr
+
+Use top-level role tables. Each takes `harness`, `model`, `effort` and `mode`:
+
+```toml
+[planner]
+harness = "pi"
+model = "opencode-go/kimi-k3.1-pro"
+effort = "high"
+mode = "default"
+
+[qa]
+harness = "codex"
+model = "gpt-6.1-sol"
+effort = "medium"
+mode = "auto"
+```
+
+Fields you set are merged over the [defaults](skills/flyingnobita-deliver/references/herdr-profiles.toml), so you only list what you change. Valid `mode` values depend on the harness; see the [Herdr adapter](skills/flyingnobita-deliver/adapters/herdr.md).
+
+### Paseo
+
+Roles use your Paseo agent profiles, not `delivery.toml`. Create four profiles in Paseo with the IDs `planner`, `implementer`, `reviewer` and `qa`, and set each one's provider, model and thinking level there. A missing profile stops the run at setup.
+
+## Tests
 
 ```bash
 python3 tests/test-deliver-runtime.py
