@@ -41,11 +41,26 @@ skills add flyingnobita/flyingnobita-deliver
 
 ### Updating
 
-To update the suite to the latest release:
+The Skills CLI `update` command accepts installed skill names rather than repository slugs:
 
 ```bash
-skills update flyingnobita/flyingnobita-deliver -g
+# Update the four companion skills globally
+skills update flyingnobita-deliver flyingnobita-deliver-setup flyingnobita-deliver-review flyingnobita-deliver-retro -g
+
+# Or update all installed global skills
+skills update -g
+
+# Or perform an idempotent source reinstall from the latest default branch tip
+skills add flyingnobita/flyingnobita-deliver -g -y
 ```
+
+### Branch Tip vs. Tagged Releases
+
+- **Branch-tip installation**: Running `skills add flyingnobita/flyingnobita-deliver` installs from the default branch tip (`main`), receiving the latest verified changes on subsequent reinstalls or updates.
+- **Tagged releases**: GitHub Releases (e.g. `v0.1.0`) represent immutable versioned releases accompanied by changelogs and release notes. To pin or install a specific release milestone rather than the branch tip, append the tag ref:
+  ```bash
+  skills add flyingnobita/flyingnobita-deliver#v0.1.0 -g
+  ```
 
 ## Prerequisites
 
@@ -55,9 +70,9 @@ skills update flyingnobita/flyingnobita-deliver -g
   - `gh` ([GitHub CLI](https://cli.github.com), authenticated via `gh auth login`)
   - Python 3.11+ (standard library with `tomllib` and `unittest`)
 - **Delivery Hosts** (at least one confirmed):
-  - [Herdr](https://github.com/herdrdev/herdr)
-  - [Paseo](https://github.com/getpaseo/paseo)
-  - [Orca](https://github.com/stablyai/orca)
+  - [Herdr](https://github.com/herdrdev/herdr) ([herdr.dev](https://herdr.dev))
+  - [Paseo](https://github.com/getpaseo/paseo) ([paseo.sh](https://paseo.sh))
+  - [Orca](https://github.com/stablyai/orca) ([onorca.dev](https://www.onorca.dev)) — run `orca skills install --skill orchestration` to install Orca's bundled orchestration skill
 - **Dependency Skills**:
   The suite relies on Matt Pocock's workflow skills, resolved under either their upstream names or `mattpocock-` prefixed names:
   - `grilling` (or `mattpocock-grilling`)

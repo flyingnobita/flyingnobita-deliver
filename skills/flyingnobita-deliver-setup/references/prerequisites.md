@@ -33,8 +33,8 @@ Check only the selected host's rows.
 | Herdr | `herdr` CLI | `herdr --version` | Install `herdr` from <https://github.com/herdrdev/herdr> |
 | Herdr | `herdr` skill | installed where the target repo's agent reads it, or `herdr --skill` prints it | Install via `skills add herdrdev/herdr --skill herdr -g`, or configure `herdr --skill` |
 | Herdr | harness integration | `herdr integration status` shows each planned harness as `current` | `herdr integration install <harness>` for each, including `omp` and `opencode` |
-| Orca | Orca app and CLI | `orca --version` | Install Orca from <https://github.com/stablyai/orca> |
-| Orca | `orca-orchestration` skill | installed | Install `orca-orchestration` skill |
+| Orca | Orca app and CLI | `orca --version` | Install Orca from <https://github.com/stablyai/orca> or <https://www.onorca.dev> |
+| Orca | `orca-orchestration` skill | installed (`orca-orchestration` or `orchestration`), or `orca skills get orchestration` succeeds | Run `orca skills install --skill orchestration` from the Orca CLI to install the bundled, version-matched skill |
 | Paseo | Paseo daemon and MCP tools | caller-bound Paseo MCP connection answers `list_profiles` | Install Paseo from <https://github.com/getpaseo/paseo>. Never run the desktop `paseo` binary to probe |
 | Paseo | profiles `planner`, `implementer`, `reviewer`, `qa` | all four in `list_profiles` | Add the four role profiles in Paseo |
 

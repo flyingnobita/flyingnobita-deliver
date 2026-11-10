@@ -57,7 +57,7 @@ If any are missing, stop with the failed prerequisite. Herdr's
 [adapter](../adapters/herdr.md) owns durable reports, plan-output capture and
 recovery; its runtime helper does not grant shipping or permission authority.
 
-Orca requires `orca-orchestration`, its full installed version-matched guide,
+Orca requires the orchestration skill (installed as `orca-orchestration` or `orchestration` via `orca skills install --skill orchestration`), its full installed version-matched guide,
 Python 3.11+ for project TOML, `deliver-runtime` and `deliver-orca-preflight`. Its native task/dispatch
 and request identities own lifecycle and recovery; the helper records delivery
 evidence. Missing caller identity blocks launch. See
