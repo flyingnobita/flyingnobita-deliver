@@ -25,8 +25,12 @@ Inspect only named identity fields; retain no credentials.
    Missing tools, connection failures and unresolved nesting are broken context.
    Never launch the desktop `paseo` binary to probe identity.
 3. Orca context absent: no Orca caller/session/worktree markers or live
-   caller-bound connection identify this execution. If any exists, load
-   `orca-orchestration`, resolve its CLI and read the full installed guide.
+   caller-bound connection identify this execution. If any exists, resolve the Orca
+   executable (`ORCA_CLI_COMMAND` if set; `orca-dev` in a dev context; `orca-ide` on
+   Linux outside an Orca-managed terminal; otherwise `orca`) and load the full
+   version-matched orchestration guide with `ORCA skills get orchestration --full`
+   (fetching any omitted references with `ORCA skills get orchestration --reference references/<file>.md`
+   if output is truncated), or via `orca-orchestration` if installed.
    Read [the Orca contract](orca-contract.md), then run
    `deliver-orca-preflight` with the canonical repo on stdin. Use its explicit
    classification, host binding and evidence; stop on a broken result. The

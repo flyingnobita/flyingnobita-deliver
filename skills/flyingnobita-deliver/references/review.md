@@ -9,8 +9,9 @@ is findings plus evidence; worker completion is not a clean-review verdict.
    Ask it to save the findings outside disposable worktrees and identify the
    reviewed HEAD. The reviewer never edits code, commits or starts repairs.
    On Orca, include this reference and the selected adapter in the reviewer
-   brief. Before spawning Standards/Spec workers, the reviewer loads
-   `orca-orchestration` and its full installed guide. Each axis receives a
+   brief. Before spawning Standards/Spec workers, the reviewer loads the full
+   version-matched Orca orchestration guide (via `ORCA skills get orchestration --full`
+   or `orca-orchestration`). Each axis receives a
    complete Task contract and the selected profile before its first launch.
    Compile each structured axis packet with `deliver-runtime orca-task` from
    [the Orca contract](orca-contract.md); preserve packet/spec and durable report

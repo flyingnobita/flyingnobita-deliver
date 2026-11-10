@@ -7,7 +7,8 @@ JSON or prove a worker obeyed its instructions.
 
 ## Caller preflight
 
-After loading the installed full `orca-orchestration` guide, run
+After loading the full version-matched Orca orchestration guide (via
+`ORCA skills get orchestration --full` or `orca-orchestration`), run
 `deliver-orca-preflight` with `{"repo":"/absolute/repository"}` on stdin from
 this executing agent's checkout. It uses only read-only Orca status, own-handle
 lookup and `run-current`, Git identity and process ancestry. Output is `orca`

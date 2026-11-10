@@ -72,7 +72,7 @@ skills add flyingnobita/flyingnobita-deliver -g -y
 - **Delivery Hosts** (at least one confirmed):
   - [Herdr](https://github.com/herdrdev/herdr) ([herdr.dev](https://herdr.dev))
   - [Paseo](https://github.com/getpaseo/paseo) ([paseo.sh](https://paseo.sh))
-  - [Orca](https://github.com/stablyai/orca) ([onorca.dev](https://www.onorca.dev)) — run `orca skills install --skill orchestration` to install Orca's bundled orchestration skill
+  - [Orca](https://github.com/stablyai/orca) (macOS: `brew install --cask stablyai/orca/orca`; Linux: `stably-orca-bin` or `orca-ide-bin`; [onorca.dev](https://www.onorca.dev)) — Orca bundles its own version-matched orchestration guide, loaded directly via `ORCA skills get orchestration --full` without requiring an external skill download
 - **Dependency Skills**:
   The suite relies on Matt Pocock's workflow skills, resolved under either their upstream names or `mattpocock-` prefixed names:
   - `grilling` (or `mattpocock-grilling`)

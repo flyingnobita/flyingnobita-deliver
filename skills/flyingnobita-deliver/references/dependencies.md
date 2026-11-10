@@ -57,8 +57,14 @@ If any are missing, stop with the failed prerequisite. Herdr's
 [adapter](../adapters/herdr.md) owns durable reports, plan-output capture and
 recovery; its runtime helper does not grant shipping or permission authority.
 
-Orca requires the orchestration skill (installed as `orca-orchestration` or `orchestration` via `orca skills install --skill orchestration`), its full installed version-matched guide,
-Python 3.11+ for project TOML, `deliver-runtime` and `deliver-orca-preflight`. Its native task/dispatch
+Orca requires the version-matched orchestration reference, loaded either via the
+`orca-orchestration` discovery stub or directly from the resolved Orca CLI with
+`ORCA skills get orchestration --full` (fetching omitted references with
+`ORCA skills get orchestration --reference references/<file>.md` if output is truncated).
+A missing local wrapper does not block when the native full guide is available.
+Executable resolution: `ORCA_CLI_COMMAND` if set, `orca-dev` in dev context,
+`orca-ide` on Linux outside an Orca-managed terminal, otherwise `orca`.
+Also requires Python 3.11+ for project TOML, `deliver-runtime` and `deliver-orca-preflight`. Its native task/dispatch
 and request identities own lifecycle and recovery; the helper records delivery
 evidence. Missing caller identity blocks launch. See
 [the Orca adapter](../adapters/orca.md) for supported local placement and

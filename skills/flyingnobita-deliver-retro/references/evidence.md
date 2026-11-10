@@ -44,7 +44,7 @@ them from active-time and idle-loss totals; do not rewrite old evidence.
   matched by thread ID.
 - Workers: the same stores, keyed by each attempt's `worker_session`. On Paseo
   use `get_agent_activity` per role agent; on Orca read native output by
-  Dispatch ID through `orca-orchestration`, including archived output.
+  Dispatch ID through the Orca orchestration guide, including archived output.
 
 Search transcripts with targeted queries (tool names, file paths, error text)
 rather than reading them whole; they are large.

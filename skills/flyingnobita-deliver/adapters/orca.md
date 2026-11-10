@@ -1,8 +1,14 @@
 # Orca adapter
 
-Use after [host detection](../references/host-detection.md). Load
-`orca-orchestration` and its full version-matched guide. Use its resolved CLI
-for this entire run. This adapter targets local Git worktrees; remote execution
+Use after [host detection](../references/host-detection.md). Resolve the Orca CLI
+for the session: `ORCA_CLI_COMMAND` if set; `orca-dev` in a dev checkout exposing
+`ORCA_DEV_REPO_ROOT`; `orca-ide` on Linux outside an Orca-managed terminal (never
+bare `orca` there to prevent starting the GNOME screen reader); otherwise `orca`.
+Load the full version-matched guide directly with `ORCA skills get orchestration --full`
+(fetching any omitted references with `ORCA skills get orchestration --reference references/<file>.md`
+if output is truncated), or through `orca-orchestration` when installed. A missing
+local discovery wrapper does not block if the native guide is available. Use the
+resolved CLI for this entire run. This adapter targets local Git worktrees; remote execution
 requires a separately validated execution-host and evidence path. The initiating
 session stays the coordinator, with its existing model and settings.
 
