@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-11, 2026 - 01:54 AM +08 - Release v0.2.0: Publish the delivery suite under the unprefixed names `deliver`, `deliver-setup`, `deliver-review` and `deliver-retro`, read Herdr role profiles from `[hosts.herdr.roles.<role>]`, and move legacy top-level Herdr role tables there through setup. Existing installs must remove and re-add the suite because the lock keys changed.
+
 - Nov-11, 2026 - 01:43 AM +08 - Publish the four skills as `deliver`, `deliver-setup`, `deliver-review` and `deliver-retro`; existing installs must remove and re-add the suite because the lock keys change, and the suite still resolves the `flyingnobita-` prefixed names.
 
 - Nov-11, 2026 - 01:50 AM +08 - Setup writes Herdr role profiles only as `[hosts.herdr.roles.<role>]` tables, and offers to move old top-level role tables there after showing the change, keeping every value, unknown key and unrelated table.
