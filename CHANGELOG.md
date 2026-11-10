@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-10, 2026 - 04:48 PM +08 - Release v0.1.0 documentation repair: Ensure Orca executable resolution explicitly prevents bare orca GNOME screen reader collision across all entrypoints, and verify disposable local installation receipt.
+
 - Nov-10, 2026 - 04:46 PM +08 - Allow native Orca orchestration guide directly without requiring a local discovery stub; document Orca executable resolution and public installation routes.
 
 - Nov-10, 2026 - 04:42 PM +08 - Fix Skills CLI update documentation in README to use installed skill names and clarify branch-tip versus tagged release installation; update Orca prerequisite guidance to reference bundled orchestration install command and official URLs.

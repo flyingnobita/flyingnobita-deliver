@@ -63,7 +63,7 @@ Orca requires the version-matched orchestration reference, loaded either via the
 `ORCA skills get orchestration --reference references/<file>.md` if output is truncated).
 A missing local wrapper does not block when the native full guide is available.
 Executable resolution: `ORCA_CLI_COMMAND` if set, `orca-dev` in dev context,
-`orca-ide` on Linux outside an Orca-managed terminal, otherwise `orca`.
+`orca-ide` on Linux outside an Orca-managed terminal (never bare `orca` there, which starts the GNOME screen reader), otherwise `orca`.
 Also requires Python 3.11+ for project TOML, `deliver-runtime` and `deliver-orca-preflight`. Its native task/dispatch
 and request identities own lifecycle and recovery; the helper records delivery
 evidence. Missing caller identity blocks launch. See

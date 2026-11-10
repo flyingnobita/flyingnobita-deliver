@@ -27,7 +27,7 @@ Inspect only named identity fields; retain no credentials.
 3. Orca context absent: no Orca caller/session/worktree markers or live
    caller-bound connection identify this execution. If any exists, resolve the Orca
    executable (`ORCA_CLI_COMMAND` if set; `orca-dev` in a dev context; `orca-ide` on
-   Linux outside an Orca-managed terminal; otherwise `orca`) and load the full
+   Linux outside an Orca-managed terminal, never bare `orca`; otherwise `orca`) and load the full
    version-matched orchestration guide with `ORCA skills get orchestration --full`
    (fetching any omitted references with `ORCA skills get orchestration --reference references/<file>.md`
    if output is truncated), or via `orca-orchestration` if installed.
