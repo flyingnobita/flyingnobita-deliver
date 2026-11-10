@@ -22,10 +22,15 @@ for implementation; choosing to log a proposal is not that approval.
 ## Steps
 
 1. Load `retro` (or `mattpocock-retro`) with the Skill tool. If the harness refuses it
-   because it is user-invoked, read its `SKILL.md` directly. Run its steps 1 to 3
+   because it is user-invoked, read its `SKILL.md` directly. Check that file against the
+   [upstream contract](references/upstream.md): it must present only after its steps 1 to 3,
+   and no category may duplicate the [checks](references/checks.md) below. Name any breach
+   in the report and follow this skill's steps regardless. Run its steps 1 to 3
    on the orchestrator's session and the delivered repo; hold its candidates for step 7
    here rather than presenting them now. If neither load works, load `writing-for-agents`
    (or `mattpocock-writing-for-agents`) and name the missing dependency in the report.
+   Done when upstream's steps 1 to 3 have run, their candidates are held for step 7, and
+   any contract breach is named.
 
 2. Resolve the runs. Default to the run this session orchestrated; otherwise
    the run ID, repo or branch the user names. "Recent runs" or a trend request

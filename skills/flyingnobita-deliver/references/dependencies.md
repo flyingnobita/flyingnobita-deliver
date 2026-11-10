@@ -32,12 +32,11 @@ These are user-invoked (`disable-model-invocation: true`), so the orchestrator o
 | `/wayfinder` (or `/mattpocock-wayfinder`) | Work too large for one run | Grilling stop |
 | `/flyingnobita-deliver-retro` | A run with scope changes, extra review loops, or fallbacks | Final report |
 
-`flyingnobita-deliver-retro` loads `retro` (or `mattpocock-retro`) for its environment
-categories (navigation, automated checks, coding standards, tool economy,
-information access) and adds the multi-agent checks. After an upstream update
-of `retro`, check that its steps 1 to 3 still end before
-presenting, and that its categories do not now duplicate the retro's
-[checks](../../flyingnobita-deliver-retro/references/checks.md).
+`flyingnobita-deliver-retro` loads `retro` (or `mattpocock-retro`) for its
+environment review and adds the multi-agent checks. The sibling skill owns that
+contract and the step that checks it, recorded in
+[its upstream reference](../../flyingnobita-deliver-retro/references/upstream.md);
+change it there, not here.
 
 ## File formats read
 
