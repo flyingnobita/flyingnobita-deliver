@@ -20,7 +20,8 @@ belong to the role, not the orchestrator.
 1. the grilling round;
 2. plan approval;
 3. any **scope change**: a finding that changes what is being built or why;
-4. the PR draft, for an **upstream repo** only.
+4. the local preview, when the approved plan waits for the user to try it;
+5. the PR draft, for an **upstream repo** only.
 
 Work that needs steps only the user can perform (credentials, CI secrets, a third-party dashboard) is also a stop: load `wizard` (or `mattpocock-wizard`) to generate a guided script for those steps, and resume when the user reports them done.
 
@@ -69,7 +70,7 @@ Done when the workspace is ready, recorded as reused or created, and the baselin
 
 ## 3. Grilling stop
 
-Load `grilling` (or `mattpocock-grilling` if installed with the prefix) and grill the user on every open decision the brief leaves, at the depth intake set: for gaps-only depth, tell it to ask only what is missing or contradicted. For human steps or ticket graphs, read [references/scheduling.md](references/scheduling.md) and add its unresolved scheduling decisions. Add the setup questions and the QA offer (target host or environment, or skip) to its rounds.
+Load `grilling` (or `mattpocock-grilling` if installed with the prefix) and grill the user on every open decision the brief leaves, at the depth intake set: for gaps-only depth, tell it to ask only what is missing or contradicted. For human steps or ticket graphs, read [references/scheduling.md](references/scheduling.md) and add its unresolved scheduling decisions. Add the setup questions, the local preview offer (what it would activate, the command, the state it replaces, and how that state is restored), and the QA offer (target host or environment, or skip) to its rounds.
 
 Direct repo: also load `domain-modeling` (or `mattpocock-domain-modeling`), so glossary terms and ADRs are written as decisions settle. Upstream repo: write no domain docs.
 
@@ -80,6 +81,7 @@ Done when every open decision is settled and the user has confirmed the brief.
 Start the planner role, read-only, with the brief and the decisions. Its plan must name:
 
 - the vertical **slices** of the work, in order, marking each **destructive** slice: one that deletes, rolls back, prunes or overwrites durable state, together with the stronger implementer profile it runs on ([pipeline.md](references/pipeline.md#build));
+- the **local preview** step when the user asked for one: what it activates, the activation command, the state it replaces, and how and when that state is restored, placed before the ship stage;
 - the **seams**: the public interfaces the tests go through, each with a line on what it catches and what it misses (`tdd` tests only at seams the user confirmed);
 - the commands for the tests, the full suite and the linters, and the plan's required test list by name;
 - when the product ships or fingerprints its own tree: the end-to-end command that prepares and validates the real artifact, and each gate it runs (freshness, fingerprint, leak checks), checked against every preparation step the plan requires so no required step is one a gate refuses;
@@ -118,7 +120,7 @@ Done when the user approves the plan and its seams. For a ticket graph, the plan
 
 ## 5. Build
 
-Read [references/pipeline.md](references/pipeline.md) and run it: the implementer builds test-first at the approved seams and commits, your **red check** proves the new tests fail on the base, review loops until clean, and QA runs when offered. Answer role permission requests by the rule in the adapter. A scope change found here is a stop.
+Read [references/pipeline.md](references/pipeline.md) and run it: the implementer builds test-first at the approved seams and commits, your **red check** proves the new tests fail on the base, review loops until clean, the plan's local preview runs and restores before QA, and QA runs when offered. Answer role permission requests by the rule in the adapter. A scope change found here is a stop.
 
 Done when every pipeline gate in `pipeline.md` has passed, each confirmed by your own run rather than a role's report.
 

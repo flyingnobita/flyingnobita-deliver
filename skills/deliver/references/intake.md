@@ -23,6 +23,7 @@ Write the brief in the conversation, at most a screen:
 - **Repo**: path or URL, and direct or upstream if known.
 - **Scope**: what is in, and what is out.
 - **Acceptance**: observable checks that prove it done.
+- **Preview**: what is activated locally before the ship stage and how its state is restored, or that the user declined one.
 - **Open decisions**: what the grilling round must settle.
 - **Route**: single unit or ticket graph (see below).
 
@@ -31,7 +32,20 @@ Show the brief at the grilling stop. The user's confirmation of the brief is par
 ## Grilling depth
 
 - **Full**: issue or description. Settle the approach, test strategy, QA target, and any branch the input leaves open.
-- **Gaps only**: spec, tickets, or grill output. These were already grilled when written; ask only what is missing or contradicted by the code.
+- **Gaps only**: spec, tickets, or grill output. These were already grilled when written, so ask only what is missing or contradicted by the code, plus the local preview those inputs almost never record.
+
+## Local preview
+
+The user may want to try the change in their own environment before it ships: an installed skill or plugin, a locally running build, a config entry. Ask at the grilling stop, for every input type and depth, whether they want one and what it covers. A preview request that arrives later adds work to the plan, which makes it a scope change.
+
+A yes settles three things with the user, and all three go in the brief so the planner has them:
+
+- what is activated, named by path or command (a skill directory, plugin, package, service, config entry);
+- the activation command and the state it replaces, when that state is the user's own;
+- how the starting state is restored, and whether the preview waits for the user to try it or restores as soon as it activates.
+
+Activation and restore are one plan step placed before the ship stage, so no
+preview work starts once shipping has begun.
 
 ## Size route
 

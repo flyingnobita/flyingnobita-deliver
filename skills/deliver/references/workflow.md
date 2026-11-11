@@ -3,7 +3,8 @@
 Use `deliver` (or `flyingnobita-deliver`) for a description, issue, spec or ticket graph.
 It confirms a brief, checks the baseline, settles open decisions, gets a plan
 and test seams approved, then builds, independently verifies, reviews, optionally
-tests in the real environment, and ships within the approved authority.
+activates a local preview or tests in the real environment, and ships within the
+approved authority.
 
 - `deliver-setup` (or `flyingnobita-deliver-setup`): configure profiles and
   project defaults or migrate the old Orca configuration. Normal entry does not
