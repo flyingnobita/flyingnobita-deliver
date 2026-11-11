@@ -80,9 +80,9 @@ arguments or properly quoted argv; do not interpolate task text as shell code.
 | Bind run | `orchestration run-create --objective "deliver <work>" --json`; save returned Run ID. Resume with `run-use --id <id>` only after verifying coordinator ownership. Never take over an active coordinator. |
 | Create workspace | `worktree create --repo path:<repo> --name <unique> --base-branch <resolved-base> --setup <policy> --json`. Keep UI focus. Record returned full worktree ID, path and actual branch. The creation receipt is authoritative, not the intended branch label in the draft record. |
 | Create task | `orchestration task-create --spec <brief> --json`. Journal this mutation and save its Task ID before dispatch. Use explicit dependencies when useful, but dispatch only after delivery blockers are verified and merged. |
-| Start role | `orchestration worker-start --task <id> --worktree id:<full-worktree-id> --agent <harness> [--model <id> --effort <level>] --retry-request <saved-id> --json`. Pre-created worktrees give an exact base before dispatch. Do not pass creation flags for an existing worktree. |
+| Start role | `orchestration worker-start --task <id> --worktree id:<full-worktree-id> --agent <harness> [--model <id> --effort <level>] --json`. Pre-created worktrees give an exact base before dispatch. Do not pass creation flags for an existing worktree. Omit `--retry-request` for a new start: Orca accepts only the native request UUID it reported for the original request, and only when replaying that request. |
 | Running follow-up | `orchestration send --to dispatch:<id> --subject <subject> --body <guidance> --json`; enqueue is not proof it was read. |
-| Settled follow-up | Create a new native Task and delivery job. Reuse a proven agent with `worker-start --task <new-id> --terminal <handle> --worktree id:<full-id> --retry-request <saved-id> --json`; omit model/effort on reuse. Otherwise start fresh with saved context. |
+| Settled follow-up | Create a new native Task and delivery job. Reuse a proven agent with `worker-start --task <new-id> --terminal <handle> --worktree id:<full-id> --json`; omit model/effort on reuse. Otherwise start fresh with saved context. |
 | Wait | `orchestration check --wait --types "worker_done,escalation,question" --timeout-ms 60000 --json`. Process every row before acknowledging the delivery. |
 | Answer question | `orchestration reply --id <message-id> --body <answer> --json`, only when the approved plan or a user decision supplies the answer. Resume pending asks by message ID after timeout. |
 | Settle resource | After accepted completion, immediately reuse, explicitly user-requested retain, or `worker-release --dispatch <id>`. Native settlement is separate from the delivery gate. Preserve the worktree for verification even when the worker is released. |
@@ -108,6 +108,8 @@ All commands take JSON on stdin and include delivery `run_id` and optional
    `native_run`, `native_task`, `role`, `worktree`, `branch`, compiled `packet` and current `base`
    SHA. This checks approval, isolation, concurrency and duplicate intent.
    The base must be the coordinator-verified integration tip for that ticket.
+   `request_id` identifies the delivery record; it is not Orca's native request
+   UUID and never goes to `--retry-request`.
 2. After the launch, call `orca-receipt` with `job`, matching native run/task/
    request, actual `dispatch` and `evidence` from the receipt. A failed start
    may still own resources; inspect its native receipt instead of assuming no

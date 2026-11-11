@@ -84,7 +84,8 @@ def classify(env, status, terminal, ancestors, repo_matches, workspace, run_curr
                 or inherited.get('ORCA_TERMINAL_HANDLE') == handle,
                 'harness does not descend from this terminal')
         binding, surface = handle, 'terminal'
-    require(run_current.get('ok') is True and run_current['_meta']['runtimeId'] == runtime,
+    run_meta = run_current.get('_meta') or {}
+    require(run_current.get('ok') is True and run_meta.get('runtimeId') in (None, runtime),
             'native caller resolution failed or runtime changed')
     return {'orca': 'confirmed', 'surface': surface,
             'host': {'host': 'orca', 'session': runtime, 'pane': binding},

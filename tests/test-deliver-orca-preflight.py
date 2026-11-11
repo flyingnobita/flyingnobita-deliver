@@ -39,6 +39,11 @@ class PreflightTests(unittest.TestCase):
         self.assertEqual(result['host']['pane'], 'term_own')
         self.assertIsNone(result['evidence']['run'])
 
+    def test_run_current_without_runtime_meta_is_accepted(self):
+        args = self.fixture()
+        del args[6]['_meta']
+        self.assertEqual(module.classify(*args)['orca'], 'confirmed')
+
     def test_structured_session_requires_its_own_live_host_identity(self):
         args = self.fixture()
         args[0]['ORCA_AGENT_SESSION_ID'] = 'chat'

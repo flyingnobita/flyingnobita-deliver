@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-11, 2026 - 10:44 PM +08 - Accept Orca's `run-current` response without runtime metadata in the caller preflight, so a Codex caller on Orca 1.4.256 is confirmed instead of reported broken.
+- Nov-11, 2026 - 10:44 PM +08 - Stop passing a delivery request ID to `worker-start --retry-request`; Orca accepts only the native request UUID it reported, and the walkthrough's first planner smoke was rejected until the flag was omitted.
 - Nov-11, 2026 - 09:54 PM +08 - Record the installed revision a retro ran at in its ledger entry and name the Skills CLI lock's live path, so a behaviour difference after an install update has a revision to compare.
 
 - Nov-11, 2026 - 08:26 PM +08 - Tell setup's prerequisite table that a harness session started before a Herdr integration loads reports no identity, so it must restart or supply its native session ID.
