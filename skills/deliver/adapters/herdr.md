@@ -142,6 +142,17 @@ authorized quota switches and historical-run compatibility.
 
 ## Compact observation and progress
 
+Observation is a status plus a fixed tail, never a transcript. Read state with
+`herdr agent get PANE`; read output only as
+`herdr agent read PANE --source visible --lines N`, where `N` is 40 or less, so
+one read stays near 2 KB. Always pass `--lines`: checked on 2026-11-12 with
+Herdr 0.9.5, omitting it returned 92 rows for `visible` and 80 for `recent`,
+which sit inside the 55 to 90 lines the 2026-11-11 retrospective counted across
+60 delivery reads. When 40 lines do not answer the question, apply the same
+bound to another source, the worker's report, or a file in the worktree; never
+widen the window. This ceiling narrows the generic Herdr skill's larger read
+example for delivery runs.
+
 On resume, read a compact summary of stage, current attempts, HEADs, profile
 bindings, dispatch/completion state and evidence paths. Read complete reports or
 transcripts only to resolve a named uncertainty. Keep full logs on disk; routine
@@ -201,9 +212,12 @@ a later record is reconciliation evidence, never proof of prior intent.
    strict about its required Herdr session field. A missing or ambiguous native
    identity remains a blocker. Never infer identity from a matching cwd or a
    convenient transcript file. On startup error inspect `agent get PANE` and
-   `agent read PANE --source visible`; never blindly start again.
+   `agent read PANE --source visible --lines 40`, then `--source recent
+   --lines 40` for earlier output; never blindly start again.
 3. Give the worker approved decisions, its allowed edits, applicable skill file
-   paths, exact checks and report identity/path. For the Claude planner, keep
+   paths, exact checks and report identity/path. Bound its readable output the
+   same way: one status line per check plus at most 20 lines of failing output,
+   never a pasted log or transcript. For the Claude planner, keep
    `--permission-mode plan` and use its native `~/.claude/plans` output. The
    [plansDirectory setting](https://code.claude.com/docs/en/settings-reference#plansdirectory)
    rejects paths outside the project and falls back to this default; do not
@@ -214,12 +228,13 @@ a later record is reconciliation evidence, never proof of prior intent.
    code. Never approve ExitPlanMode to implement.
 4. Inspect visible UI and readiness before `prompt` (unknown permission dialogs
    can resemble idle). Let the helper submit once. Subsequent observation uses
-   `herdr agent wait PANE --timeout 30000`, `agent get`, and `agent read`.
-   Settlement alone never passes a stage: require activity/completion after the
-   saved baseline, matching harness session, matching report and independent
-   verification. A timeout or `agent_prompt_stalled` means inspect, not resend.
-5. On `blocked` or an unfamiliar dialog, read visible UI, explain the request
-   and name the exact worker/pane. Notify with
+   `herdr agent wait PANE --timeout 30000`, `agent get`, and a bounded
+   `agent read`. Settlement alone never passes a stage: require
+   activity/completion after the saved baseline, matching harness session,
+   matching report and independent verification. A timeout or
+   `agent_prompt_stalled` means inspect, not resend.
+5. On `blocked` or an unfamiliar dialog, read the bounded visible tail, explain
+   the request and name the exact worker/pane. Notify with
    `herdr notification show TITLE --body TEXT --sound request` and ask the user
    to answer in that pane. Preserve focus. Observe state again after the answer.
    Answer ordinary worker questions only when the approved plan settles them;
