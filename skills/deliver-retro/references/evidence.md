@@ -42,9 +42,10 @@ transcript and artifact write times bound it. Label a derived duration as a
 bound with its two sources, keep minutes unknown when neither exists, and never
 turn a file write time into a measured start.
 
-Herdr records a socket path in `host.session`, not a harness session, so a run's
-orchestrator is matched on `evidence[].verification.harness_session`,
-`planner_session`, or an attempt's `worker_session` instead.
+A Herdr run may record a socket path in `host.session` rather than a harness
+session. When the comparison above does not match, match the executing session
+against `evidence[].verification.harness_session`, a planner's `planner_session`,
+or an attempt's `worker_session`.
 
 ## Transcripts
 

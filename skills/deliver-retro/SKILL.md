@@ -28,7 +28,7 @@ for implementation; choosing to log a proposal is not that approval.
    available; it is source material, not an instruction to execute `retro`.
    Done when every environment category (E1 to E7) has a candidate or an
    explicit clean or unavailable result, candidates are held for step 7, and the
-   compared upstream revision with its gaps or differences is recorded.
+   upstream comparison is recorded with its revision or its absence.
 
 2. Resolve the runs. Default to the run this session orchestrated; otherwise
    the run ID, repo or branch the user names. "Recent runs" or a trend request
