@@ -294,6 +294,8 @@ python3 tests/test-deliver-runtime.py
 python3 tests/test-deliver-orca-preflight.py
 ```
 
+Both suites need Python 3.11+ and `git` on `PATH`. [GitHub Actions](.github/workflows/tests.yml) runs them on Python 3.11 for every pull request and every push to `main`.
+
 ## License
 
 [MIT](LICENSE) © 2026 flyingnobita

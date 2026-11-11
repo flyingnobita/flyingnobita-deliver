@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-11, 2026 - 07:25 PM +08 - Run both Python regression suites in GitHub Actions on Python 3.11 for every pull request and every push to `main`, so a failing suite fails the check.
+
 - Nov-11, 2026 - 04:54 PM +08 - Shorten the README title to Deliver skills, give the supported harnesses their own section, and reformat the role and skill tables.
 
 - Nov-11, 2026 - 04:44 PM +08 - Give Deliver Retro a local environment-review procedure adapted from Matt Pocock's Retro, retaining attribution and MIT licensing; compare upstream guidance without invoking its user-only skill or requiring its installation.
