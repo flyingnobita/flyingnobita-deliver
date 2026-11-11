@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-12, 2026 - 12:59 AM +08 - Pre-trust each new Herdr worktree checkout for the planned harness and record the acknowledgement with `worktree-trust` before dispatch: `prompt` and `dispatch-intent` now refuse an attempt whose checkout and harness have no recorded trust, the adapter names the verified Claude and Codex trust stores, and raw text, keys or `/status` writes into a live worker pane are forbidden.
+
 - Nov-11, 2026 - 11:21 PM +08 - Validate the Paseo Quick start against `a5cfdff` with a disposable repository and a first-time setup and delivery: tell the user to approve the session's Paseo workspace and agent creation, name the setup skill for Codex instead of a slash command, and stop setup from opening hidden background workspaces.
 
 - Nov-11, 2026 - 10:44 PM +08 - Accept Orca's `run-current` response without runtime metadata in the caller preflight, so a Codex caller on Orca 1.4.256 is confirmed instead of reported broken.

@@ -491,6 +491,31 @@ def check_resource(record, resource):
     return git(worktree, 'rev-parse', 'HEAD')
 
 
+TRUST_METHODS = ('harness-config', 'native-flag', 'operator-accepted', 'not-required')
+
+
+def planned_harness(attempt):
+    return (attempt.get('requested_profile') or {}).get('harness')
+
+
+def trusts_checkout(entry, attempt):
+    """Whether a recorded acknowledgement covers this attempt's checkout and planned harness."""
+    harness = planned_harness(attempt)
+    path = str(Path(attempt['resource']['worktree']).resolve())
+    return bool(harness) and entry['harness'] == harness and entry['trusted_path'] == path
+
+
+def worktree_trust(task, attempt):
+    """The acknowledgement for this attempt's exact checkout and planned harness, if recorded."""
+    return next((entry for entry in task.get('worktree_trust', []) if trusts_checkout(entry, attempt)), None)
+
+
+def require_worktree_trust(task, attempt):
+    require(planned_harness(attempt), 'record the planned profile before dispatch')
+    require(worktree_trust(task, attempt) is not None,
+            'record the worktree trust acknowledgement for this checkout and harness before dispatch')
+
+
 def test_commit(repo, value):
     require(isinstance(value, str) and re.fullmatch(r'(?:[0-9a-f]{40}|[0-9a-f]{64})', value),
             'test provenance requires full commit hashes')
@@ -664,7 +689,25 @@ def update_task(command, data, record, directory):
     attempt = task['attempts'][-1]
     if command != 'recover':
         require(data['attempt'] == attempt['id'], 'stale attempt')
-    if command == 'profile-bind':
+    if command == 'worktree-trust':
+        require(attempt['status'] == 'ready', 'worktree trust precedes dispatch; inspect the existing attempt')
+        path = str(Path(attempt['resource']['worktree']).resolve())
+        require(isinstance(data.get('trusted_path'), str) and Path(data['trusted_path']).is_absolute()
+                and str(Path(data['trusted_path']).resolve()) == path,
+                'trusted path must be the attempt worktree')
+        harness = data.get('harness')
+        require(isinstance(harness, str) and harness.strip(), 'trusted harness required')
+        require(planned_harness(attempt), 'record the planned profile before the worktree trust acknowledgement')
+        require(planned_harness(attempt) == harness, 'trusted harness must be the planned profile harness')
+        require(data.get('method') in TRUST_METHODS, 'unsupported trust acknowledgement method')
+        require(data.get('evidence') not in (None, '', {}, []), 'observed trust acknowledgement required')
+        trust = task.setdefault('worktree_trust', [])
+        require(not any(trusts_checkout(entry, attempt) for entry in trust),
+                'worktree trust already recorded; inspect before retry')
+        trust.append({'method': data['method'], 'harness': harness, 'trusted_path': path,
+                      'evidence': data['evidence'], 'acknowledged_at': observed_at(),
+                      'attempt': attempt['id']})
+    elif command == 'profile-bind':
         require('profile_proof' not in attempt and attempt['status'] not in ('continued', 'verified', 'recovered'),
                 'profile proof is immutable; use a followup attempt for a replacement')
         chosen = requested_profile(record, task, data, attempt)
@@ -683,6 +726,7 @@ def update_task(command, data, record, directory):
     elif command == 'prompt':
         require(record['host']['host'] == 'herdr', 'native prompt requires Herdr')
         require(attempt['status'] == 'ready', 'prompt already intended; inspect before retry')
+        require_worktree_trust(task, attempt)
         require(data.get('worker_session'), 'recognized worker harness session required')
         require(not attempt.get('profile_proof')
                 or attempt['profile_proof']['worker_session'] == data['worker_session'],
@@ -695,8 +739,10 @@ def update_task(command, data, record, directory):
                            text=True, timeout=10))['result']['agent']
         require(agent.get('pane_id') == target and
                 agent.get('workspace_id') == attempt['resource']['workspace'] and
-                agent.get('agent_session', {}).get('value') == data['worker_session'] and
-                agent.get('agent_status') in ('idle', 'done'), 'worker identity/readiness mismatch')
+                agent.get('agent_session', {}).get('value') == data['worker_session'],
+                'worker identity mismatch')
+        require(agent.get('agent_status') in ('idle', 'done'),
+                'worker is not ready; inspect its pane for a startup or approval dialog instead of typing into it')
         update_task('dispatch-intent', data, record, directory)
         attempt['worker_session'] = data['worker_session']
         attempt['completion_baseline'] = agent.get('completion_seq')
@@ -716,6 +762,7 @@ def update_task(command, data, record, directory):
         # Even success is only an observation. A matching report and verification are separate gates.
     elif command == 'dispatch-intent':
         require(attempt['status'] == 'ready', 'prompt already intended; inspect before retry')
+        require_worktree_trust(task, attempt)
         require(isinstance(data['prompt'], str) and data['prompt'], 'empty prompt')
         attempt['prompt_sha256'] = hashlib.sha256(data['prompt'].encode()).hexdigest()
         attempt['status'] = 'dispatch-uncertain'

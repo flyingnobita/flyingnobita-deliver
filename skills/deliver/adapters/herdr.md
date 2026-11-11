@@ -112,9 +112,10 @@ back to `~/.local/state/flyingnobita-deliver`. Keep state outside checkouts.
 | `operation-intent` | Unique `operation_id`, `operation` (`worktree-create`, `agent-start`, `worktree-remove`, `workspace-close`), exact `target` object. Record before the corresponding Herdr mutation. Duplicate IDs fail. |
 | `operation-result` | `operation_id`, observed `result` identifiers/evidence. An uncertain operation must be inspected before recording its result or attempting a different operation. |
 | `attempt` | `task`, `resource:{worktree,branch,workspace,pane,agent,session}`. Validates Git identity, isolation, base, dependencies, resource collisions and the saved concurrency limit. Optional `approved_base` is an explicitly approved integration commit. Returns attempt ID and `report_path`. |
+| `worktree-trust` | `task`, `attempt`, the attempt's planned profile `harness`, `method` (`harness-config`, `native-flag`, `operator-accepted`, `not-required`), `trusted_path` resolving to the attempt worktree, and observed `evidence`. Append-only per checkout and harness; `prompt` and `dispatch-intent` refuse without a matching record. |
 | `profile-bind` | `task`, `attempt`, observed profile, actual harness session and availability/startup evidence. Records immutable per-attempt proof; [profile-proof.md](../references/profile-proof.md) defines authorized overrides. |
-| `prompt` | `task`, `attempt`, `prompt`, `worker_session`, optional `timeout_ms` (1-60000, default 30000). Validates live pane, workspace, harness session and readiness, saves dispatch intent, then submits once through argv. Waits for `working` or `blocked` acknowledgement, not task completion. Any uncertain result remains saved. Never repeat it. `herdr_bin` is a test-boundary override. |
-| `dispatch-intent` | Same task/attempt and exact `prompt`; for manual dispatch after equivalent live readiness checks. Records intent only; never sends input. |
+| `prompt` | `task`, `attempt`, `prompt`, `worker_session`, optional `timeout_ms` (1-60000, default 30000). Requires the recorded worktree trust, then validates live pane, workspace, harness session and readiness, saves dispatch intent, then submits once through argv. Waits for `working` or `blocked` acknowledgement, not task completion. Any uncertain result remains saved. Never repeat it. `herdr_bin` is a test-boundary override. |
+| `dispatch-intent` | Same task/attempt and exact `prompt`, plus the recorded worktree trust; for manual dispatch after equivalent live readiness checks. Records intent only; never sends input. |
 | `reconcile` | `task`, `attempt`, `observation:{session,resource,agent_state,commit,dispatch}`. Capture current host/agent inventory; helper independently checks Git/cleanliness. `dispatch` is `not-submitted` only when non-delivery is established, otherwise `uncertain`. |
 | `report` | `task`, `attempt`, `report:{run_id,task,attempt,commit,checks,questions}`. Requires exact identity and current worktree HEAD, saves immutable report outside worktrees. |
 | `followup` | `task`, `attempt`, `evidence` recording the plan-backed answer or user decision. From an unverified report, creates a new ready attempt with a new report path and preserves the original report. Use `prompt` once for this follow-up. It does not consume crash recovery. |
@@ -154,7 +155,10 @@ mark done.
 
 Send role work only through `prompt`, `followup` or `handoff`. A stuck attempt
 moves through `handoff`, a dropped task through `abandon`; a bare
-`herdr agent prompt` leaves the run record unable to verify the work.
+`herdr agent prompt` leaves the run record unable to verify the work. Never send
+raw terminal input, such as keys, a typed `/status`, a slash command or shell
+text, into a worker pane: raw input is neither role work nor a readiness check.
+The one sanctioned pane write is agy's fixed priming prompt below.
 
 The runtime records `created_at`, `dispatched_at`, `acknowledged_at`, `reported_at`
 and `verified_at` when those observations occur. Creation is not worker startup;
@@ -164,6 +168,59 @@ execution times unknown when historical evidence is missing, with a separate
 reconciliation observation time. Never substitute graph collection time for a
 worker start/end time or claim an unknown duration is zero. Deliver does not
 create or own a Dagr viewer; retained historical graphs remain evidence only.
+
+## Pre-dispatch worktree trust
+
+A fresh worktree checkout has no workspace-trust state in the harness, so its
+first interactive start can stop at the harness's own trust dialog. Herdr then
+reports `agent start` as `agent_not_ready` (`blocked during startup`), and the
+pane consumes anything typed at it. That is the 2026-11-11 retrospective's
+uncertain dispatch: a blocked startup, then `/status` and prompt text written
+into a live worker pane.
+
+Before dispatch, establish that harness's trust for the exact new checkout and
+record the acknowledgement with `worktree-trust`: `task`, `attempt`, the
+attempt's planned `harness`, `trusted_path` resolving to the attempt's worktree,
+observed `evidence` of the acknowledgement, and one `method`:
+
+- `harness-config`: the harness's own per-directory trust entry was written
+  before startup.
+- `native-flag`: a verified launch flag accepts the directory.
+- `operator-accepted`: the user accepted the dialog in that exact pane.
+- `not-required`: a verified harness with no workspace-trust dialog.
+
+Record `harness-config` and `native-flag` before `agent start`. The other two
+follow an observation: `operator-accepted` after the user answered the dialog in
+that pane, and `not-required` after a verified startup showed no dialog. Record
+both before `prompt` or `dispatch-intent`.
+
+Records are append-only and scoped to one checkout and the attempt's planned
+harness. `prompt` and `dispatch-intent` refuse an attempt until a matching record
+exists, so record the planned profile first and give a profile switch to another
+harness its own record. A later attempt in the same checkout reuses its record.
+
+Verified trust stores, checked 2026-11-12: Claude Code 2.1.322 keeps
+`projects["<absolute checkout path>"].hasTrustDialogAccepted` in
+`~/.claude.json`; Codex 0.167.1 keeps `[projects."<absolute checkout path>"]
+trust_level = "trusted"` in `~/.codex/config.toml`. Read the file, add only that
+exact path, keep every other entry and value, and write it back atomically so a
+concurrent harness start never reads a partial file. Claude's `-p`/non-TTY mode
+skips the dialog, but a delivery worker needs the full TUI. Do not clear a trust
+stop with `--dangerously-skip-permissions`,
+`--dangerously-bypass-approvals-and-sandbox` or another bypass: that broadens
+permissions instead of accepting a directory.
+
+agy, Pi, omp and OpenCode have no verified trust mechanism in the current
+evidence. Stop for the user at that exact pane, record `operator-accepted` with
+the observed post-acceptance state, then dispatch. `herdr worktree create
+--trust-repository` is separate: it grants per-request Git trust after the user
+verified the repository and never accepts a harness dialog.
+
+Neither a trust dialog nor a startup block is readiness. Never send raw terminal
+input, such as keys, a typed `/status`, a slash command or shell text, into a
+live worker pane; read it with `agent get`, `agent read PANE --source visible`
+and `agent explain --json`. The only sanctioned pane write is agy's fixed
+priming prompt in the startup sequence below.
 
 ## Native operations
 
@@ -184,8 +241,11 @@ a later record is reconciliation evidence, never proof of prior intent.
    worktree path; save the result before continuing. One worktree per concurrent
    ticket. Use the approved dependency frontier, the resolved concurrency limit (default three). Do not move panes.
 2. Register task/attempt with returned identifiers. Journal start intent; inspect
-   that the pane contains an available interactive shell. Start
-   `herdr agent start NAME --kind KIND --pane PANE --timeout 30000 -- ARGV...`.
+   that the pane contains an available interactive shell. Establish trust for
+   the exact checkout and planned harness as the section above requires: record
+   it with `worktree-trust` before `agent start` when the harness has a config
+   or flag mechanism, or from the observed acceptance at its first start. Then
+   start `herdr agent start NAME --kind KIND --pane PANE --timeout 30000 -- ARGV...`.
    Names are unique and at most 32 characters. Save actual harness session ID
    after readiness. agy reports its session only when it receives a prompt, so
    for `--kind agy` first record a `checkpoint` naming the pane and the fixed
@@ -194,14 +254,18 @@ a later record is reconciliation evidence, never proof of prior intent.
    session from `agent get PANE` and pass it as `prompt`'s `worker_session`
    (the attempt's `session` is the Herdr session). Priming grants no work; the
    task prompt still goes through `prompt`. If Herdr omits the session ID for
-   any other harness, inspect the exact worker pane with its native `/status`
-   diagnostic and bind the displayed session,
-   effective settings and foreground process in a checkpoint. Use the manual
-   `dispatch-intent` path after those equivalent live checks; keep `prompt`
-   strict about its required Herdr session field. A missing or ambiguous native
-   identity remains a blocker. Never infer identity from a matching cwd or a
-   convenient transcript file. On startup error inspect `agent get PANE` and
-   `agent read PANE --source visible`; never blindly start again.
+   any other harness, read the identity from the visible pane and foreground
+   process (`agent get`, `agent read PANE --source visible`, `agent explain
+   --json`) and bind the displayed session, effective settings and foreground
+   process in a checkpoint. Never type
+   `/status` or another command into the pane to obtain it: that write is
+   indistinguishable from dispatch, and a trust dialog consumes it as
+   keystrokes. Use the manual `dispatch-intent` path after those equivalent live
+   checks; keep `prompt` strict about its required Herdr session field. A
+   missing or ambiguous native identity remains a blocker. Never infer identity
+   from a matching cwd or a convenient transcript file. On startup error inspect
+   `agent get PANE` and `agent read PANE --source visible`; never blindly start
+   again.
 3. Give the worker approved decisions, its allowed edits, applicable skill file
    paths, exact checks and report identity/path. For the Claude planner, keep
    `--permission-mode plan` and use its native `~/.claude/plans` output. The

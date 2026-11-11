@@ -474,7 +474,10 @@ class RuntimeTests(unittest.TestCase):
         payload = {'state_root': str(root / 'state'), 'repo': str(repo),
                    'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'},
                    'approved': {'brief': 'fixture', 'plan': 'fixture', 'seams': ['CLI']},
-                   'profiles': {}, 'base': 'main', 'branch': 'main'}
+                   'profiles': {role: {'harness': 'codex', 'model': 'gpt-6.1-sol', 'effort': 'medium',
+                                       'mode': 'auto'}
+                                for role in ('planner', 'implementer', 'reviewer', 'qa')},
+                   'base': 'main', 'branch': 'main'}
         run = self.call('create', payload)
         return repo, {'state_root': str(root / 'state'), 'run_id': run['run_id']}
 
@@ -500,6 +503,88 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(self.call('show', run)['tasks']['build']['recoveries'], 0)
             self.call('show', {**run, 'run_id': '../escape'}, ok=False)
 
+    def record_worktree_trust(self, payload, worktree, harness='codex', method='harness-config',
+                              evidence=None):
+        return self.call('worktree-trust', {**payload, 'harness': harness, 'method': method,
+                         'trusted_path': str(worktree),
+                         'evidence': evidence or f'trust entry observed for {worktree}'})
+
+    def trust_attempt(self, payload, harness=None, method='harness-config'):
+        attempt = self.call('show', payload)['tasks'][payload['task']]['attempts'][-1]
+        self.assertEqual(attempt['id'], payload['attempt'])
+        planned = (attempt.get('requested_profile') or {}).get('harness')
+        return self.record_worktree_trust(payload, attempt['resource']['worktree'],
+                                          harness=harness or planned or 'codex', method=method)
+
+    def test_worktree_trust_is_recorded_before_dispatch_and_scoped_to_its_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run = self.setup_run(root)
+            self.call('task', {**run, 'task': 'build'})
+            self.call('task', {**run, 'task': 'repair'})
+            worktree, other = root / 'worker', root / 'other'
+            self.git(repo, 'worktree', 'add', '-q', '-b', 'deliver-build', str(worktree), 'main')
+            self.git(repo, 'worktree', 'add', '-q', '-b', 'deliver-repair', str(other), 'main')
+            resource = {'worktree': str(worktree), 'branch': 'deliver-build', 'workspace': 'w2',
+                        'pane': 'w2:p1', 'agent': 'delivery-build', 'session': 'fixture'}
+            attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
+            payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            self.bind_fixture_profile(payload)
+            dispatch = {**payload, 'prompt': 'implement'}
+            self.assertIn('worktree trust', self.call('dispatch-intent', dispatch, ok=False))
+            self.assertIn('worktree trust', self.call('prompt', {**dispatch, 'worker_session': 'worker',
+                                                                'herdr_bin': str(root / 'absent-herdr')}, ok=False))
+            self.call('worktree-trust', {**payload, 'harness': 'pi', 'method': 'harness-config',
+                                         'trusted_path': str(root / 'elsewhere'), 'evidence': 'other path'}, ok=False)
+            self.call('worktree-trust', {**payload, 'harness': 'pi', 'method': 'send-keys',
+                                         'trusted_path': str(worktree), 'evidence': 'keystrokes'}, ok=False)
+            self.call('worktree-trust', {**payload, 'harness': 'pi', 'method': 'harness-config',
+                                         'trusted_path': str(worktree), 'evidence': ''}, ok=False)
+            self.call('worktree-trust', {**payload, 'harness': 'codex', 'method': 'harness-config',
+                                         'trusted_path': str(worktree), 'evidence': 'wrong harness'}, ok=False)
+            self.assertNotIn('worktree_trust', self.call('show', run)['tasks']['build'])
+            self.record_worktree_trust(payload, worktree, harness='pi')
+            self.call('worktree-trust', {**payload, 'harness': 'pi', 'method': 'harness-config',
+                                         'trusted_path': str(worktree), 'evidence': 'again'}, ok=False)
+            trust = self.call('show', run)['tasks']['build']['worktree_trust']
+            self.assertEqual([(row['method'], row['harness'], row['attempt'], row['trusted_path'])
+                              for row in trust],
+                             [('harness-config', 'pi', attempt['id'], str(worktree.resolve()))])
+            repair = self.call('attempt', {**run, 'task': 'repair', 'resource': {
+                'worktree': str(other), 'branch': 'deliver-repair', 'workspace': 'w3',
+                'pane': 'w3:p1', 'agent': 'delivery-repair', 'session': 'fixture'}})['tasks']['repair']['attempts'][0]
+            repair_payload = {**run, 'task': 'repair', 'attempt': repair['id']}
+            self.assertIn('worktree trust', self.call('dispatch-intent', {
+                **repair_payload, 'prompt': 'repair'}, ok=False))
+            self.call('worktree-trust', {**repair_payload, 'harness': 'pi', 'method': 'harness-config',
+                                         'trusted_path': str(other), 'evidence': 'wrong harness'}, ok=False)
+            self.record_worktree_trust(repair_payload, other)
+            self.call('dispatch-intent', dispatch)
+            self.call('dispatch-intent', {**repair_payload, 'prompt': 'repair'})
+            self.assertEqual(self.call('show', run)['tasks']['build']['attempts'][0]['status'],
+                             'dispatch-uncertain')
+
+    def test_dispatch_needs_a_planned_profile_before_trust_can_be_recorded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, existing = self.setup_run(root)
+            original = self.call('show', existing)
+            run = {**existing, 'run_id': self.call('create', {
+                'state_root': str(root / 'state'), 'repo': str(repo), 'base': 'main',
+                'branch': 'draft', 'host': original['host'], 'profiles': {}})['run_id']}
+            self.call('task', {**run, 'task': 'plan', 'role': 'planner'})
+            worktree = root / 'planner'
+            self.git(repo, 'worktree', 'add', '-q', '-b', 'plan', str(worktree), 'main')
+            attempt = self.call('attempt', {**run, 'task': 'plan', 'resource': {
+                'worktree': str(worktree), 'branch': 'plan', 'workspace': 'w2',
+                'pane': 'w2:p1', 'agent': 'planner', 'session': 'fixture'}})['tasks']['plan']['attempts'][0]
+            payload = {**run, 'task': 'plan', 'attempt': attempt['id']}
+            self.assertIn('planned profile', self.call('worktree-trust', {
+                **payload, 'harness': 'codex', 'method': 'harness-config',
+                'trusted_path': str(worktree), 'evidence': 'x'}, ok=False))
+            self.assertIn('planned profile', self.call('dispatch-intent', {
+                **payload, 'prompt': 'plan'}, ok=False))
+
     def test_dispatch_intent_blocks_duplicate_and_uncertain_recovery(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -513,6 +598,7 @@ class RuntimeTests(unittest.TestCase):
             payload = {**run, 'task': 'build', 'resource': binding}
             attempt = self.call('attempt', payload)['tasks']['build']['attempts'][0]
             dispatch = {**run, 'task': 'build', 'attempt': attempt['id'], 'prompt': 'implement'}
+            self.trust_attempt(dispatch)
             self.call('dispatch-intent', dispatch)
             self.call('dispatch-intent', dispatch, ok=False)
             self.call('recover', {**run, 'task': 'build'}, ok=False)
@@ -529,6 +615,7 @@ class RuntimeTests(unittest.TestCase):
                         'pane': 'w2:p1', 'agent': 'delivery-build', 'session': 'fixture'}
             attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
             payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            self.trust_attempt(payload)
             self.call('dispatch-intent', {**payload, 'prompt': 'implement'})
             self.bind_fixture_profile(payload)
             report = {'run_id': run['run_id'], 'task': 'build', 'attempt': attempt['id'],
@@ -558,6 +645,7 @@ class RuntimeTests(unittest.TestCase):
                             'pane': f'w{index+2}:p1', 'agent': f'build-{index}', 'session': 'fixture'}
                 attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][-1]
                 payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+                self.trust_attempt(payload)
                 self.call('dispatch-intent', {**payload, 'prompt': 'build'})
                 evidence = {'session': 'fixture', 'resource': resource, 'agent_state': 'exited',
                             'commit': attempt['base'], 'dispatch': 'not-submitted'}
@@ -576,6 +664,7 @@ class RuntimeTests(unittest.TestCase):
                         'pane': 'w2:p1', 'agent': 'build', 'session': 'fixture'}
             attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
             payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            self.trust_attempt(payload)
             self.call('dispatch-intent', {**payload, 'prompt': 'build'})
             observation = {'session': 'fixture', 'resource': resource, 'agent_state': 'exited',
                            'commit': attempt['base'], 'dispatch': 'uncertain'}
@@ -609,12 +698,40 @@ class RuntimeTests(unittest.TestCase):
             fake.chmod(0o700)
             payload = {**run, 'task': 'build', 'attempt': attempt['id'], 'prompt': 'build',
                        'herdr_bin': str(fake), 'worker_session': 'worker', 'timeout_ms': 100}
+            self.trust_attempt(payload)
             record = self.call('prompt', payload)
             actual = record['tasks']['build']['attempts'][0]
             self.assertEqual(actual['status'], 'observed')
             self.assertEqual(actual['completion_baseline'], 7)
             self.assertFalse(record['tasks']['build']['verified'])
             self.call('prompt', payload, ok=False)
+
+    def test_native_prompt_refuses_a_blocked_worker_without_writing_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run = self.setup_run(root)
+            self.call('task', {**run, 'task': 'build'})
+            worktree = root / 'worker'
+            self.git(repo, 'worktree', 'add', '-q', '-b', 'build', str(worktree), 'main')
+            resource = {'worktree': str(worktree), 'branch': 'build', 'workspace': 'w2',
+                        'pane': 'w2:p1', 'agent': 'build', 'session': 'fixture'}
+            attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
+            fake, log = root / 'herdr', root / 'calls.jsonl'
+            fake.write_text('#!/usr/bin/env python3\nimport json,sys\nfrom pathlib import Path\n'
+                            f'Path({str(log)!r}).open("a").write(json.dumps(sys.argv[1:])+"\\n")\n'
+                            'if sys.argv[1:3] == ["agent", "get"]:\n'
+                            ' print(json.dumps({"result":{"agent":{"pane_id":"w2:p1",'
+                            '"workspace_id":"w2","agent_status":"blocked",'
+                            '"agent_session":{"value":"worker"}}}}))\n'
+                            'else: sys.exit(0)\n')
+            fake.chmod(0o700)
+            payload = {**run, 'task': 'build', 'attempt': attempt['id'], 'prompt': 'build',
+                       'herdr_bin': str(fake), 'worker_session': 'worker', 'timeout_ms': 100}
+            self.trust_attempt(payload)
+            self.assertIn('not ready', self.call('prompt', payload, ok=False))
+            calls = [json.loads(line) for line in log.read_text().splitlines()]
+            self.assertEqual([args for args in calls if args[:2] == ['agent', 'prompt']], [])
+            self.assertEqual(self.call('show', run)['tasks']['build']['attempts'][0]['status'], 'ready')
 
     def provenance_fixture(self, root, kind='behavioral', docs_only=False, bind_profile=True):
         repo, run = self.setup_run(root)
@@ -625,6 +742,7 @@ class RuntimeTests(unittest.TestCase):
                     'pane': 'w2:p1', 'agent': 'build', 'session': 'fixture'}
         attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
         payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+        self.trust_attempt(payload)
         self.call('dispatch-intent', {**payload, 'prompt': 'build'})
         if bind_profile:
             self.bind_fixture_profile(payload)
@@ -685,6 +803,7 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(new['requested_profile'], replacement)
             self.assertNotIn('profile_proof', new)
             new_payload = {**payload, 'attempt': new['id']}
+            self.trust_attempt(new_payload, harness='claude')
             self.call('dispatch-intent', {**new_payload, 'prompt': 'continue'})
             self.bind_fixture_profile(new_payload, replacement, 'replacement-worker')
             actual = self.call('show', payload)['tasks']['build']['attempts']
@@ -810,6 +929,7 @@ class RuntimeTests(unittest.TestCase):
             fake.chmod(0o700)
             payload = {**run, 'task': 'build', 'attempt': attempt['id'], 'prompt': 'literal; $(no shell)',
                        'herdr_bin': str(fake), 'worker_session': 'worker-session', 'timeout_ms': 100}
+            self.trust_attempt(payload)
             record = self.call('prompt', payload)
             self.assertEqual(record['tasks']['build']['attempts'][0]['status'], 'dispatch-uncertain')
             self.call('prompt', payload, ok=False)
@@ -829,6 +949,7 @@ class RuntimeTests(unittest.TestCase):
                         'pane': 'w2:p1', 'agent': 'build', 'session': 'fixture'}
             attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
             payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            self.trust_attempt(payload)
             self.call('dispatch-intent', {**payload, 'prompt': 'build'})
             self.bind_fixture_profile(payload)
             self.call('cleanup-check', {**payload, 'observation': resource, 'landed': 'main'}, ok=False)
@@ -867,6 +988,7 @@ class RuntimeTests(unittest.TestCase):
             fake.chmod(0o700)
             payload = {**run, 'task': 'build', 'attempt': attempt['id'], 'prompt': 'build',
                        'worker_session': 'worker', 'herdr_bin': str(fake), 'timeout_ms': 5000}
+            self.trust_attempt(payload)
             process = subprocess.Popen(['python3', str(SCRIPT), 'prompt'], stdin=subprocess.PIPE,
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             try:
@@ -965,6 +1087,7 @@ class RuntimeTests(unittest.TestCase):
                         'pane': 'w2:p1', 'agent': 'build', 'session': 'fixture'}
             attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
             payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            self.trust_attempt(payload)
             self.call('dispatch-intent', {**payload, 'prompt': 'build'})
             self.bind_fixture_profile(payload)
             report = {'run_id': run['run_id'], 'task': 'build', 'attempt': attempt['id'],
@@ -979,6 +1102,7 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(record['tasks']['build']['recoveries'], 0)
             self.assertEqual(json.loads(Path(attempt['report_path']).read_text()), report)
             payload = {**run, 'task': 'build', 'attempt': followup['id']}
+            self.trust_attempt(payload, harness='pi')
             self.call('dispatch-intent', {**payload, 'prompt': 'answer: greeting; continue'})
             self.bind_fixture_profile(payload)
             self.call('report', {**payload, 'report': {**report, 'attempt': followup['id'], 'questions': []}})
@@ -1007,6 +1131,7 @@ class RuntimeTests(unittest.TestCase):
             root = Path(directory)
             _, run, worktree, resource, attempt = self.worker_fixture(root)
             payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            self.trust_attempt(payload)
             self.call('dispatch-intent', {**payload, 'prompt': 'build'})
             head = self.commit_work(worktree)
             pi = {'harness': 'pi', 'model': 'deepseek/deepseek-flash', 'effort': 'high', 'mode': 'default'}
@@ -1027,13 +1152,17 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(new['requested_profile']['harness'], 'pi')
             self.assertEqual(record['tasks']['build']['recoveries'], 0)
             self.call('dispatch-intent', {**payload, 'prompt': 'stale'}, ok=False)
-            self.call('dispatch-intent', {**run, 'task': 'build', 'attempt': new['id'], 'prompt': 'continue'})
+            replacement = {**run, 'task': 'build', 'attempt': new['id']}
+            self.assertIn('worktree trust', self.call('dispatch-intent', {**replacement, 'prompt': 'continue'}, ok=False))
+            self.trust_attempt(replacement, harness='pi')
+            self.call('dispatch-intent', {**replacement, 'prompt': 'continue'})
 
     def test_handoff_refuses_reported_work_and_work_changed_after_reconciliation(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _, run, worktree, resource, attempt = self.worker_fixture(root)
             payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            self.trust_attempt(payload)
             self.call('dispatch-intent', {**payload, 'prompt': 'build'})
             observation = {'session': 'fixture', 'resource': resource, 'agent_state': 'idle',
                            'commit': attempt['base'], 'dispatch': 'uncertain'}
@@ -1054,6 +1183,7 @@ class RuntimeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _, run, _, resource, attempt = self.worker_fixture(root)
+            self.trust_attempt({**run, 'task': 'build', 'attempt': attempt['id']})
             self.call('dispatch-intent', {**run, 'task': 'build', 'attempt': attempt['id'], 'prompt': 'build'})
             self.call('task', {**run, 'task': 'proofs'})
             self.call('task', {**run, 'task': 'after', 'dependencies': ['build']})
@@ -1077,6 +1207,7 @@ class RuntimeTests(unittest.TestCase):
             root = Path(directory)
             _, run, worktree, resource, attempt = self.worker_fixture(root)
             payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            self.trust_attempt(payload)
             self.call('dispatch-intent', {**payload, 'prompt': 'build'})
             moved = {**run, 'stage': 'build', 'evidence': 'restarted orchestrator',
                      'host': {'host': 'herdr', 'session': 'restarted', 'pane': 'w1:p1'}}
