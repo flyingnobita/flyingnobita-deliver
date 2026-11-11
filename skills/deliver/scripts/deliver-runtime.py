@@ -97,6 +97,7 @@ def migrate_orca(data):
 
 
 DELIVERY_ROLES = ('planner', 'implementer', 'reviewer', 'qa')
+PROFILE_FIELDS = ('harness', 'model', 'effort', 'mode')
 
 
 def herdr_project_roles(data):
@@ -599,9 +600,22 @@ def test_results(record, task, attempt, report, data):
 
 def canonical_profile(role, value):
     require(isinstance(value, dict), 'complete profile object required')
-    compiled = profiles({'defaults': {role if role in ('planner', 'implementer', 'reviewer', 'qa') else 'qa': value}})
+    require(all(field in value for field in PROFILE_FIELDS),
+            'complete profile requires harness, model, effort and mode')
+    compiled = profiles({'defaults': {role if role in DELIVERY_ROLES else 'qa': value}})
     profile = next(iter(compiled.values()))['profile']
-    return {key: profile[key] for key in ('harness', 'model', 'effort', 'mode')}
+    return {field: profile[field] for field in PROFILE_FIELDS}
+
+
+def report_profile(task, attempt, report):
+    """A report must name its effective profile in the same canonical vocabulary as its request."""
+    observed = report.get('observed_profile')
+    require(isinstance(observed, dict), 'report must name its effective profile as observed_profile')
+    actual = canonical_profile(task['role'], observed)
+    if attempt.get('requested_profile') is not None:
+        require(actual == attempt['requested_profile'],
+                'report effective profile differs from authorized request')
+    return actual
 
 
 def requested_profile(record, task, data, previous=None):
@@ -810,6 +824,8 @@ def update_task(command, data, record, directory):
         require(report.get('checks') and isinstance(report.get('questions'), list), 'incomplete report')
         require(report.get('commit') == check_resource(record, attempt['resource']), 'report commit mismatch')
         test_report(record, task, attempt, report)
+        if record.get('profile_contract') == 1:
+            report_profile(task, attempt, report)
         path = Path(attempt['report_path'])
         if path.exists():
             require(json.loads(path.read_text()) == report, 'report is immutable')
@@ -831,6 +847,8 @@ def update_task(command, data, record, directory):
                     and profile['observed_profile'] == attempt['requested_profile']
                     and profile['worker_session'] == attempt.get('worker_session'),
                     'matching effective profile proof required before verification')
+        if record.get('profile_contract') == 1:
+            report_profile(task, attempt, report)
         task['verified'] = True
         attempt['status'] = 'verified'
         attempt['verified_at'] = observed_at()

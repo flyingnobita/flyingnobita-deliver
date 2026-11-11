@@ -33,6 +33,14 @@ The runtime validates profile fields, equality with the authorized request and
 binding to any already-recorded worker session. It does not discover a model
 from the name of a transcript file.
 
+Every report in a run with `profile_contract: 1` must also carry
+`observed_profile` with the same four canonical fields (`harness`, `model`,
+`effort`, `mode`). `report` refuses a missing, partial, differently named or
+mismatched effective profile, and `verify` rechecks it against the authorized
+request. A report that names its mode, effort or model in another vocabulary, such
+as native `default` for a requested `full-access` or `not exposed` effort, cannot
+register or verify. Historical runs without the contract remain resumable.
+
 Quota changes are supported. When the stopped worker can still write a
 partial-work report, retain its exact HEAD, report and observed settings and use
 `followup`. When it cannot, for example because the quota refusal arrived before

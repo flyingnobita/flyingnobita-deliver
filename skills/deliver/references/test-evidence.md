@@ -27,11 +27,12 @@ For new or changed tests, use `test_scope: "changed"` with one or more groups:
 }
 ```
 
-These fields extend the normal report identity, final `commit`, `checks` and
-`questions`; they do not replace them. Replace angle-bracket values with actual
-hashes. Commit hashes must be full Git object IDs. Paths are checkout-relative
-files. The runtime reads each cited Git blob and checks its content hash. It
-rejects a behavioral red whose subject is the final reported green commit.
+These fields extend the normal report identity, final `commit`, `checks`,
+`questions` and `observed_profile`; they do not replace them. Replace
+angle-bracket values with actual hashes. Commit hashes must be full Git object
+IDs. Paths are checkout-relative files. The runtime reads each cited Git blob
+and checks its content hash. It rejects a behavioral red whose subject is the
+final reported green commit.
 
 Behavioral red evidence is per test, as the build brief requires
 ([pipeline.md](pipeline.md)). A group is behavioral only if its own test fails
