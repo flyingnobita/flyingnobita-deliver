@@ -16,14 +16,19 @@ store pointers and counts.
   "created_at": "2026-10-28T09:00:00+08:00",
   "runs": [{"run_id": "...", "repo": "/abs/repo", "host": "herdr", "route": "single"}],
   "reworks": [{"run_id": "...", "kind": "plan-revision", "origin_stage": "plan", "origin_role": "planner", "minutes": 25}],
-  "checks": {"C1": "finding", "C2": "clean"},
+  "checks": {"C1": "finding", "C2": "clean", "E1": "finding"},
   "gates": {"red_check": {"caught": 0, "minutes": 4}, "review": {"caught": 2, "minutes": 30}, "qa": {"caught": 0, "minutes": 12}, "verify": {"caught": 1, "minutes": 6}},
   "profiles": [{"role": "implementer", "host": "herdr", "harness": "codex", "model": "...", "effort": "medium", "attempts": 3, "reworks_originated": 2, "minutes": 90}],
+  "upstream": {"skill": "mattpocock-retro", "revision": "skill-lock:335c1862", "available": true},
   "candidates": [{"id": "C1-1", "check": "C1", "title": "...", "severity": "rework", "fix_type": "skill-text", "owner_file": "references/pipeline.md", "measure": "...", "recurrence": 0, "status": "proposed", "commit": null}]
 }
 ```
 
 Fill `route` with `single` or `graph`, and `host` with the selected adapter.
+`checks` holds one result per coordination and role check (C1 to C7, R1 to R9)
+and per environment category (E1 to E7), so a clean category is still recorded.
+`upstream` records the compared copy from step 1; set `available` false and omit
+`revision` when no copy was installed.
 The `...` values are placeholders; a real entry holds observed values or omits
 the field.
 
@@ -43,5 +48,7 @@ optional field remain valid. Logging a proposal does not change its status to
 A trend needs runs, not retros: count each run once even when several retros
 read it.
 
-Keep `minutes` fields numeric. Format user-facing table durations as `Hh Mm`
-(337 minutes becomes `5h 37m`); presentation does not change stored evidence.
+Keep `minutes` fields numeric. A duration bounded by a transcript and an artifact
+write time stays numeric, and its two sources stay in that retro's evidence.
+Format user-facing table durations as `Hh Mm` (337 minutes becomes `5h 37m`);
+presentation does not change stored evidence.

@@ -12,6 +12,12 @@ During Deliver Retro step 1, read the installed `retro` or `mattpocock-retro`
 requirements, writing guidance and recommendations with `environment.md`.
 An unavailable copy is a comparison gap, not a blocker to the local review.
 
+Record the revision compared: a Skills CLI install has no git revision, so use
+the copy's `skillFolderHash` from the Skills CLI lock (`~/.agents/.skill-lock.json`
+by default), together with its `updatedAt` date. A git checkout instead uses
+`git -C <install> rev-parse HEAD`. A plain copy with neither is recorded by path
+and comparison date.
+
 Identify useful additions, removed or renamed categories, and changed guidance.
 Use category meaning rather than upstream step numbers; its presentation order
 does not control Deliver Retro. Hold all findings for the combined report.
