@@ -23,15 +23,15 @@ You need [Herdr](https://github.com/herdrdev/herdr), an installed and authentica
    npx skills add herdrdev/herdr --skill herdr -g
    ```
 
-2. Open your repository in Herdr and start a fresh Codex session so it loads the installed skills. Run:
+2. Open your repository in Herdr and start a fresh Codex session so it loads the installed skills. Codex picks a skill from your request rather than a slash command, so name the skill and the settings:
 
    ```text
-   /deliver-setup
+   Run the deliver-setup skill: use Codex for planner, implementer, reviewer and QA, with one model available to my account. Validate all four profiles. Set max_workers = 1 and landing = "leave".
    ```
 
-   Ask setup: "Use Codex for planner, implementer, reviewer and QA, with one model available to my account. Validate all four profiles. Set max_workers = 1 and landing = \"leave\"."
-
    Review the proposed settings and approve them. Setup checks prerequisites, identifies any integration fixes, validates the profiles with no-edit smoke tasks, and records the configuration in `docs/agents/delivery.toml`. Resolve any reported blocker before continuing.
+
+   If setup reports the Herdr Codex integration missing, approve `herdr integration install codex` and restart the Codex session: Herdr reads a session's identity at startup, so setup cannot match the running session until it restarts. Without a restart, run `/status` in that session and paste the session ID it reports.
 
 3. Run the [first-delivery example](examples/first-delivery.md), or give the agent one small task:
 
