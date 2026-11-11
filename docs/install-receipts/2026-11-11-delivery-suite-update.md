@@ -128,7 +128,7 @@ Lock state after the update, `~/.local/state/skills/.skill-lock.json`:
 | Installation | Revision installed | Discovery | Verification | Remaining gap |
 | --- | --- | --- | --- | --- |
 | Skills CLI global (`~/.agents/skills`) | `a5cfdff` | `skills ls -g`, four canonical names | byte-identical to `a5cfdff`, required artifacts present | prefixed aliases are untracked by the CLI |
-| Claude Code (`~/.claude/skills`) | `a5cfdff` via symlink | four canonical links plus four prefixed links | links resolve, content identical | duplicate names list twice |
+| Claude Code (`~/.claude/skills`) | `a5cfdff` via symlink | four canonical links plus four prefixed links | links resolve, content identical | each skill appears under two names |
 | Codex, OpenCode, Cursor, Grok | not installed | n/a | n/a | out of scope, unchanged |
 | Remote Herdr hosts | unknown | unreachable | unverified | not updated from this session |
 
@@ -144,8 +144,8 @@ Lock state after the update, `~/.local/state/skills/.skill-lock.json`:
    update and for the fleet's prefixed naming. Remove them once no session depends on the
    prefixed names: `rm ~/.agents/skills/flyingnobita-deliver{,-setup,-review,-retro}`
    together with `~/.claude/skills/flyingnobita-deliver{,-setup,-review,-retro}`.
-3. PromptScript rejections leave one agent target without a global install. No delivery
-   skill was installed there before either, so nothing regressed.
+3. PromptScript rejections leave one agent target without a global install. No
+   PromptScript skill directory exists on this host, so nothing regressed there.
 4. Remote-host installations were not inspected or updated.
 5. `npx skills add` runs from the branch tip, and the lock records no commit. The
    revision claim rests on the byte comparison above, taken while `origin/main` was
