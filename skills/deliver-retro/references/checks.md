@@ -3,7 +3,7 @@
 Each check names its signal, where to look in [evidence](evidence.md), and the
 usual owning file. The usual file is a starting point; the fix goes where the
 origin of the rework is. Check IDs are stable: the [ledger](ledger.md) matches
-recurrences by them. The seven environment categories `E1` to `E7` live in
+recurrences by them. The environment categories `E1` to `E7` live in
 [environment](environment.md) and join these findings in the combined report.
 
 ## Coordination

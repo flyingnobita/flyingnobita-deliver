@@ -50,15 +50,15 @@ Prefer existing docs and navigation pointers over duplicate instructions.
 Keep coordination and role-split findings under the matching C/R check in
 [checks](checks.md); report an overlapping finding once.
 
-Done when every category (E1 to E7) is marked with a finding, clean with
-evidence, or unavailable with its missing evidence.
+Done when every category is marked with a finding, clean with evidence, or
+unavailable with its missing evidence.
 
 ## 3. Prepare improvement candidates
 
-For each finding, record its category ID (`E1` to `E7`) as the check, its
-candidate ID as `<category>-<number>` (for example `E2-1`), sanitized evidence,
-proposed smallest fix, owning file and observable measure of success. A later
-retro matches a recurrence on the same category ID and owning file, so keep both
+For each finding, record its category ID as the check, its candidate ID as
+`<category>-<number>` (for example `E2-1`), sanitized evidence, proposed
+smallest fix, owning file and observable measure of success. A later retro
+matches a recurrence on the same category ID and owning file, so keep both
 stable. These are proposals; they grant no authority to edit files or run
 external writes.
 

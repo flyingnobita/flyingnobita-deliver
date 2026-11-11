@@ -19,17 +19,17 @@ store pointers and counts.
   "checks": {"C1": "finding", "C2": "clean", "E1": "finding"},
   "gates": {"red_check": {"caught": 0, "minutes": 4}, "review": {"caught": 2, "minutes": 30}, "qa": {"caught": 0, "minutes": 12}, "verify": {"caught": 1, "minutes": 6}},
   "profiles": [{"role": "implementer", "host": "herdr", "harness": "codex", "model": "...", "effort": "medium", "attempts": 3, "reworks_originated": 2, "minutes": 90}],
-  "upstream": {"skill": "mattpocock-retro", "revision": "skill-lock:335c1862a43da9d629abafdb79ca0c0de118be08", "updatedAt": "2026-11-11T06:22:50Z", "available": true},
+  "upstream": {"skill": "mattpocock-retro", "revision": "skill-lock:335c1862a43da9d629abafdb79ca0c0de118be08", "updated_at": "2026-11-11T06:22:50Z", "available": true},
   "candidates": [{"id": "C1-1", "check": "C1", "title": "...", "severity": "rework", "fix_type": "skill-text", "owner_file": "references/pipeline.md", "measure": "...", "recurrence": 0, "status": "proposed", "commit": null}]
 }
 ```
 
 Fill `route` with `single` or `graph`, and `host` with the selected adapter.
 `checks` holds one result per coordination and role check (C1 to C7, R1 to R9)
-and per environment category (E1 to E7), so a clean category is still recorded.
-`upstream` records the compared copy from step 1: its `revision` and the lock's
-`updatedAt` date when a copy was installed, or `available` false with no
-`revision` when none was.
+and per environment category, so a clean category is still recorded.
+`upstream` records the compared copy from step 1: its `revision` and the lock
+entry's `updatedAt` date as `updated_at` when a copy was installed, or
+`available` false with no `revision` when none was.
 The `...` values are placeholders; a real entry holds observed values or omits
 the field.
 
