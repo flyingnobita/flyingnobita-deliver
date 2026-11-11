@@ -55,13 +55,11 @@ You need [Orca](https://www.onorca.dev), an installed and authenticated Codex CL
    npx skills add mattpocock/skills -g
    ```
 
-2. Open your repository in Orca and start a fresh Codex session so it loads the installed skills. Run:
+2. Open your repository in Orca and start a fresh Codex session so it loads the installed skills. Codex picks a skill from your request rather than a slash command, so name the skill and the settings:
 
    ```text
-   /deliver-setup
+   Run the deliver-setup skill: use Codex for planner, implementer, reviewer and QA, with one model available to my account. Validate all four profiles. Set max_workers = 1 and landing = "leave".
    ```
-
-   Ask setup: "Use Codex for planner, implementer, reviewer and QA, with one model available to my account. Validate all four profiles. Set max_workers = 1 and landing = \"leave\"."
 
    Review the proposed settings and approve them. Setup checks Orca's CLI and bundled orchestration guide, validates the profiles with no-edit smoke tasks, and records the configuration in `docs/agents/delivery.toml`. Resolve any reported blocker before continuing. A separately installed orchestration skill is not required when Orca's bundled guide is available.
 
