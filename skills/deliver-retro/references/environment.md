@@ -23,26 +23,27 @@ missing evidence named.
 
 ## 2. Review the environment
 
-Check each category against the session evidence:
+Each category has a stable ID (`E1` to `E7`) so the ledger can record its result
+and match a recurrence. Check each one against the session evidence:
 
-- **Navigation:** identify time lost finding files or hidden dependencies.
+- **E1 Navigation:** identify time lost finding files or hidden dependencies.
   Propose a focused navigation pointer where it would have prevented the search.
-- **Automated checks:** identify mistakes that a linter, type check, test or
+- **E2 Automated checks:** identify mistakes that a linter, type check, test or
   filesystem check could catch. Inspect existing commands and their wiring
   first; an existing but unwired or broken check is the finding. A repo with
   neither a pre-commit gate nor CI running its checks is also a candidate.
-- **Coding standards:** distinguish mechanical violations from judgement calls.
+- **E3 Coding standards:** distinguish mechanical violations from judgement calls.
   Prefer the cheapest suitable deterministic check for mechanical rules; reserve
   `CODING_STANDARDS.md` for decisions a check cannot make. The reviewer owns
   standards enforcement so implementation instructions stay focused.
-- **Global AGENTS.md:** inspect large project or global steering files for rules
+- **E4 Global AGENTS.md:** inspect large project or global steering files for rules
   better enforced automatically or reached through a coding-standards pointer.
   Treat both `AGENTS.md` and `CLAUDE.md` as scarce always-loaded context.
-- **Tool economy:** identify expensive calls, oversized responses and repeated
+- **E5 Tool economy:** identify expensive calls, oversized responses and repeated
   lookups that a smaller query or existing tool could avoid.
-- **No-ops:** identify steering instructions that add context without changing
+- **E6 No-ops:** identify steering instructions that add context without changing
   useful behavior. Cite evidence for removal rather than assuming a rule is idle.
-- **Information access:** identify missing information that caused an error or
+- **E7 Information access:** identify missing information that caused an error or
   unproductive search, such as inaccessible logs or a missing read-only source.
 
 Prefer existing docs and navigation pointers over duplicate instructions.
@@ -54,9 +55,12 @@ unavailable with its missing evidence.
 
 ## 3. Prepare improvement candidates
 
-For each finding, record its category as the check ID, sanitized evidence,
-proposed smallest fix, owning file and observable measure of success. These
-are proposals; they grant no authority to edit files or run external writes.
+For each finding, record its category ID as the check, its candidate ID as
+`<category>-<number>` (for example `E2-1`), sanitized evidence, proposed
+smallest fix, owning file and observable measure of success. A later retro
+matches a recurrence on the same category ID and owning file, so keep both
+stable. These are proposals; they grant no authority to edit files or run
+external writes.
 
 Return candidates and clean/unavailable category results to Deliver Retro.
 Hold presentation for its step 7, where candidates receive the shared severity,

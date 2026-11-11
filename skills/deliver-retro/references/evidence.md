@@ -37,11 +37,22 @@ before treating its times as execution times: a backfilled collection timestamp
 is not a measured start or settlement. Keep missing timings unknown and exclude
 them from active-time and idle-loss totals; do not rewrite old evidence.
 
+When neither the run record nor `dagr/run.json` holds a transition time, a
+transcript and artifact write times bound it. Label a derived duration as a
+bound with its two sources, keep minutes unknown when neither exists, and never
+turn a file write time into a measured start.
+
+A Herdr run may record a socket path in `host.session` rather than a harness
+session. When the comparison above does not match, match the executing session
+against `evidence[].verification.harness_session`, a planner's `planner_session`,
+or an attempt's `worker_session`.
+
 ## Transcripts
 
 - Orchestrator, Claude Code: `~/.claude/projects/<cwd-slug>/<session-id>.jsonl`.
 - Orchestrator, Codex: `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`,
-  matched by thread ID.
+  matched by thread ID. A rotated rollout is stored as `.jsonl.zst`; read it with
+  `zstd -dc <file>.zst`, or `zstdgrep`, without writing into the session store.
 - Workers: the same stores, keyed by each attempt's `worker_session`. On Paseo
   use `get_agent_activity` per role agent; on Orca read native output by
   Dispatch ID through the Orca orchestration guide, including archived output.

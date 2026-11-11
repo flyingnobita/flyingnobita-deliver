@@ -26,9 +26,9 @@ for implementation; choosing to log a proposal is not that approval.
    step 7 rather than presenting them now. Follow the [upstream comparison](references/upstream.md)
    to identify maintenance differences when an installed upstream copy is
    available; it is source material, not an instruction to execute `retro`.
-   Done when every environment category has a candidate or an explicit clean
-   or unavailable result, candidates are held for step 7, and comparison gaps
-   or differences are recorded.
+   Done when every environment category has a candidate or an
+   explicit clean or unavailable result, candidates are held for step 7, and the
+   upstream comparison is recorded with its revision or its absence.
 
 2. Resolve the runs. Default to the run this session orchestrated; otherwise
    the run ID, repo or branch the user names. "Recent runs" or a trend request
