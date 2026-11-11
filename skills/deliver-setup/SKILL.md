@@ -27,6 +27,8 @@ interview. Inside Deliver, join unresolved choices to its grilling stop.
    reviewer model/harness when available. Ask only for missing/unsupported
    choices and changes in authority. Keep the initiating orchestrator unchanged.
    Review concurrency, human schedule and landing separately from permissions.
+   When changing a Herdr harness, choose compatible `model`, `effort` and `mode`
+   together; see [Changing a Herdr harness](../deliver/references/configuration.md#changing-a-herdr-harness).
 5. Validate selected profiles through no-edit smoke tasks in a disposable
    workspace under the confirmed host. Ask each to report only its identity and
    completion; compare requested/effective settings. Native settlement, release

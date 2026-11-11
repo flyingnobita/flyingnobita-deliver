@@ -32,11 +32,11 @@ These are user-invoked (`disable-model-invocation: true`), so the orchestrator o
 | `/wayfinder` (or `/mattpocock-wayfinder`) | Work too large for one run | Grilling stop |
 | `/deliver-retro` (or `/flyingnobita-deliver-retro`) | A run with scope changes, extra review loops, or fallbacks | Final report |
 
-`deliver-retro` (or `flyingnobita-deliver-retro`) loads `retro` (or `mattpocock-retro`) for its
-environment review and adds the multi-agent checks. The sibling skill owns that
-contract and the step that checks it, recorded in
-[its upstream reference](../../deliver-retro/references/upstream.md);
-change it there, not here.
+`deliver-retro` (or `flyingnobita-deliver-retro`) owns a local
+[environment review](../../deliver-retro/references/environment.md) adapted
+from Matt Pocock's `retro`, alongside its multi-agent checks. Upstream `retro`
+is optional comparison material, not an invoked dependency. The sibling skill
+owns [its upstream comparison](../../deliver-retro/references/upstream.md).
 
 ## File formats read
 
@@ -44,7 +44,7 @@ change it there, not here.
 |---|---|---|
 | `to-spec` (or `mattpocock-to-spec`) | A spec issue or file with Problem Statement, Solution and Implementation Decisions headings | Unrecognised structure is a description; the brief confirmation at the grilling stop catches misreads |
 | `to-tickets` (or `mattpocock-to-tickets`) | One ticket per issue or per `.scratch/<feature>/issues/NN-*.md` file, each with a "Blocked by" field | Ask the user for the ticket order at the grilling stop |
-| `setup-matt-pocock-skills` (or `mattpocock-setup-matt-pocock-skills`) | `docs/agents/issue-tracker.md` names the tracker; an `## Agent skills` section marks setup as run | Treat setup as not run, and offer GitHub, a local file, or none |
+| `setup-matt-pocock-skills` (or `mattpocock-setup-matt-pocock-skills`) | `docs/agents/issue-tracker.md` names the tracker; an `## Agent skills` section in either `AGENTS.md` or `CLAUDE.md` marks setup as run | Treat setup as not run, and offer GitHub, a local file, or none |
 
 ## Host dependencies
 

@@ -78,6 +78,17 @@ tables use the same shape under `[hosts.herdr.roles.<role>]` and take
   controls scheduling and landing; do not rewrite live profiles or reinterpret
   Orca/Herdr settings as Paseo permissions.
 
+### Changing a Herdr harness
+
+When changing a role's `harness`, set a compatible `model`, `effort` and `mode`
+together in that role's table. Omitted fields inherit their previous layers,
+even when they belong to a different harness. For example, changing only
+`harness = "codex"` over a Pi default retains Pi's model and `mode = "default"`,
+which Codex profile validation rejects. Use `deliver-setup` to select and
+validate the complete profile before a delivery.
+
+Orca replaces the whole role table instead; Paseo uses its saved profiles.
+
 ## Validation
 
 - A shared policy value must have the type and enum above.

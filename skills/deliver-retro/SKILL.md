@@ -6,8 +6,8 @@ disable-model-invocation: true
 
 # Delivery retrospective
 
-The user has asked for a **retrospective** on delivery work. It extends
-`mattpocock-retro`, which reviews one agent's environment, with the layer a
+The user has asked for a **retrospective** on delivery work. It combines a local
+environment review adapted from Matt Pocock's `retro` with the layer a
 multi-agent run adds: **coordination** (how the orchestrator ran its agents)
 and **role split** (whether each piece of work landed with the right role). You
 propose the smallest change to the delivery system that prevents each loss of
@@ -21,16 +21,14 @@ for implementation; choosing to log a proposal is not that approval.
 
 ## Steps
 
-1. Load `retro` (or `mattpocock-retro`) with the Skill tool. If the harness refuses it
-   because it is user-invoked, read its `SKILL.md` directly. Check that file against the
-   [upstream contract](references/upstream.md): it must present only after its steps 1 to 3,
-   and no category may duplicate the [checks](references/checks.md) below. Name any breach
-   in the report and follow this skill's steps regardless. Run its steps 1 to 3
-   on the orchestrator's session and the delivered repo; hold its candidates for step 7
-   here rather than presenting them now. If neither load works, load `writing-for-agents`
-   (or `mattpocock-writing-for-agents`) and name the missing dependency in the report.
-   Done when upstream's steps 1 to 3 have run, their candidates are held for step 7, and
-   any contract breach is named.
+1. Read and follow the local [environment review](references/environment.md)
+   for the orchestrator's session and delivered repo. Hold its candidates for
+   step 7 rather than presenting them now. Follow the [upstream comparison](references/upstream.md)
+   to identify maintenance differences when an installed upstream copy is
+   available; it is source material, not an instruction to execute `retro`.
+   Done when every environment category has a candidate or an explicit clean
+   or unavailable result, candidates are held for step 7, and comparison gaps
+   or differences are recorded.
 
 2. Resolve the runs. Default to the run this session orchestrated; otherwise
    the run ID, repo or branch the user names. "Recent runs" or a trend request
@@ -53,11 +51,11 @@ for implementation; choosing to log a proposal is not that approval.
    has an origin, or is marked unattributable with the reason.
 
 5. Run every check in [checks](references/checks.md) against the timeline and
-   reworks. These are the multi-agent checks `mattpocock-retro` lacks; a
+   reworks. These complement the local environment review; a
    finding both cover is reported once, here. Done when every check ID has a
    finding or an explicit "clean, with evidence".
 
-6. Turn findings into candidates, using the ledger's history:
+6. Turn environment and multi-agent findings into candidates, using the ledger's history:
    - A finding matching a past candidate (same check ID and owning file) is a
      **recurrence**. If that candidate was implemented, its fix did not hold:
      raise its severity one level and step its fix type up the ladder below.
@@ -67,8 +65,8 @@ for implementation; choosing to log a proposal is not that approval.
    Choose the strongest **fix type** that removes the finding, in this order:
    1. **Runtime check**: a deterministic refusal in `deliver-runtime` or
       `deliver-orca-preflight` (the deliver skill's `scripts/`), with a test in
-      `scripts/common/tests/`. Use for a **mechanical** finding (a missing
-      field, an unverified state passing a gate, a duplicate dispatch) that
+      the delivery repository's `tests/`. Use for a **mechanical** finding
+      (a missing field, an unverified state passing a gate, a duplicate dispatch) that
       recurs, or whose first occurrence passed a gate. The candidate states the
       refusal condition, the command that refuses, a test case built from this
       run's evidence, and any legitimate run it could wrongly refuse.
@@ -112,7 +110,7 @@ for implementation; choosing to log a proposal is not that approval.
    Give each candidate as: title; check ID; evidence (run ID, attempt or report
    path, timestamp or transcript line); origin; recurrence count; fix type and
    owning file with the proposed wording or check; measure. Merge the held
-   `mattpocock-retro` candidates into the same order, labelled by their
+   environment candidates into the same order, labelled by their
    category. Then give the trends from the ledger: recurring findings, fixes
    that held, and the gate yield and profile fit tables from checks R7 and R9.
    Display duration columns as hours and minutes (`Hh Mm`), for example

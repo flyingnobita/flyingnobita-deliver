@@ -26,7 +26,7 @@ Until the rule is in `AGENTS.md` or explicitly approved in this run, ship this r
 For an input that is not already in a tracker:
 
 1. A `Tracker default` line under `## Delivery` in `AGENTS.md` decides it without asking.
-2. Otherwise check whether `setup-matt-pocock-skills` (or `mattpocock-setup-matt-pocock-skills`) has run: `docs/agents/issue-tracker.md` exists and an `## Agent skills` section is in `AGENTS.md`. If not, say once that `/setup-matt-pocock-skills` configures the tracker, and continue.
+2. Otherwise check whether `setup-matt-pocock-skills` (or `mattpocock-setup-matt-pocock-skills`) has run: `docs/agents/issue-tracker.md` exists and an `## Agent skills` section is in either `AGENTS.md` or `CLAUDE.md`. Read the tracker configuration whichever rules file holds the section, including an existing `CLAUDE.md` that is not a pointer. If not configured, say once that `/setup-matt-pocock-skills` configures the tracker, and continue.
 3. Ask at the grilling stop, multiple choice:
    - the configured tracker, shown only when setup has run;
    - a GitHub issue, merged into the first choice when they are the same;

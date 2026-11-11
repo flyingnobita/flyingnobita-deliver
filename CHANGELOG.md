@@ -1,5 +1,21 @@
 # Changes
 
+- Nov-11, 2026 - 04:54 PM +08 - Shorten the README title to Deliver skills, give the supported harnesses their own section, and reformat the role and skill tables.
+
+- Nov-11, 2026 - 04:44 PM +08 - Give Deliver Retro a local environment-review procedure adapted from Matt Pocock's Retro, retaining attribution and MIT licensing; compare upstream guidance without invoking its user-only skill or requiring its installation.
+
+- Nov-11, 2026 - 04:35 PM +08 - Explain Herdr profile inheritance when switching harnesses and direct setup to select compatible model, effort and mode values together.
+
+- Nov-11, 2026 - 03:56 PM +08 - Recognize Matt Pocock tracker setup in either `AGENTS.md` or `CLAUDE.md`, and direct delivery Retro runtime tests to this repository's `tests/` directory.
+
+- Nov-11, 2026 - 03:36 PM +08 - Replace the README's per-host harness table with a shared six-harness list and clarify that verification coverage varies by host and harness.
+
+- Nov-11, 2026 - 03:24 PM +08 - Organize Quick start into collapsible Herdr, Orca and Paseo sections, with host-specific setup instructions and an updated first-delivery link; remove the licensing and usage-cost paragraph.
+
+- Nov-11, 2026 - 03:22 PM +08 - Add a Herdr Quick start with Codex profile validation, usage-cost expectations and a small Python first-delivery example that ends on a local branch.
+
+- Nov-11, 2026 - 03:18 PM +08 - Lead the README with turning a GitHub issue into reviewed code and choosing a different model for each delivery role.
+
 - Nov-11, 2026 - 01:54 AM +08 - Release v0.2.0: Publish the delivery suite under the unprefixed names `deliver`, `deliver-setup`, `deliver-review` and `deliver-retro`, read Herdr role profiles from `[hosts.herdr.roles.<role>]`, and move legacy top-level Herdr role tables there through setup. Existing installs must remove and re-add the suite because the lock keys changed.
 
 - Nov-11, 2026 - 01:43 AM +08 - Publish the four skills as `deliver`, `deliver-setup`, `deliver-review` and `deliver-retro`; existing installs must remove and re-add the suite because the lock keys change, and the suite still resolves the `flyingnobita-` prefixed names.

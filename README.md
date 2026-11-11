@@ -1,6 +1,126 @@
-# flyingnobita-deliver skills
+# Deliver skills
 
-Runs [Matt Pocock's skills](https://github.com/mattpocock/skills) (`grilling`, `tdd`, `code-review`, `pr` and the rest) across a team of coding agents. It works on three agent hosts, [Herdr](https://herdr.dev), [Paseo](https://paseo.sh) and [Orca](https://www.onorca.dev), and each role can run on its own harness (Claude Code, Codex and so on), model and effort level. A delivery goes from brief to merged code, and the orchestrator re-checks every agent's work before it ships.
+Turn a GitHub issue into reviewed code with a team of coding agents. Choose a different model for planning, implementation, and review.
+
+Runs [Matt Pocock's skills](https://github.com/mattpocock/skills) (`grilling`, `tdd`, `code-review`, `pr` and the rest) across [Herdr](https://herdr.dev), [Paseo](https://paseo.sh) and [Orca](https://www.onorca.dev). Each role can run on its own harness (Claude Code, Codex and so on), model and effort level. The orchestrator re-checks every agent's work before it ships.
+
+## Quick start
+
+Choose your host below.
+
+<details>
+<summary><strong>Herdr</strong></summary>
+
+This path uses Herdr on Linux with Codex for all roles. Start with one model your account can access; you can choose different models later.
+
+You need [Herdr](https://github.com/herdrdev/herdr), an installed and authenticated Codex CLI, Node.js/npm for `npx`, and the [shared prerequisites](#prerequisites). Use a small GitHub repository you own, with a clean working tree and a remote default branch.
+
+1. Install the skills in a terminal:
+
+   ```bash
+   npx skills add flyingnobita/flyingnobita-deliver -g
+   npx skills add mattpocock/skills -g
+   npx skills add herdrdev/herdr --skill herdr -g
+   ```
+
+2. Open your repository in Herdr and start a fresh Codex session so it loads the installed skills. Run:
+
+   ```text
+   /deliver-setup
+   ```
+
+   Ask setup: "Use Codex for planner, implementer, reviewer and QA, with one model available to my account. Validate all four profiles. Set max_workers = 1 and landing = \"leave\"."
+
+   Review the proposed settings and approve them. Setup checks prerequisites, identifies any integration fixes, validates the profiles with no-edit smoke tasks, and records the configuration in `docs/agents/delivery.toml`. Resolve any reported blocker before continuing.
+
+3. Run the [first-delivery example](examples/first-delivery.md), or give the agent one small task:
+
+   ```text
+   deliver <describe one small change>; keep landing = "leave"
+   ```
+
+4. Answer the brief questions and approve the plan. At completion, inspect the reported branch and test results. With `landing = "leave"`, the run ends with a committed local branch, without pushing, opening a PR or merging.
+
+</details>
+
+<details>
+<summary><strong>Orca</strong></summary>
+
+You need [Orca](https://www.onorca.dev), an installed and authenticated Codex CLI, Node.js/npm for `npx`, and the [shared prerequisites](#prerequisites). Use a small GitHub repository you own, with a clean working tree and a remote default branch.
+
+1. Install the skills in a terminal:
+
+   ```bash
+   npx skills add flyingnobita/flyingnobita-deliver -g
+   npx skills add mattpocock/skills -g
+   ```
+
+2. Open your repository in Orca and start a fresh Codex session so it loads the installed skills. Run:
+
+   ```text
+   /deliver-setup
+   ```
+
+   Ask setup: "Use Codex for planner, implementer, reviewer and QA, with one model available to my account. Validate all four profiles. Set max_workers = 1 and landing = \"leave\"."
+
+   Review the proposed settings and approve them. Setup checks Orca's CLI and bundled orchestration guide, validates the profiles with no-edit smoke tasks, and records the configuration in `docs/agents/delivery.toml`. Resolve any reported blocker before continuing. A separately installed orchestration skill is not required when Orca's bundled guide is available.
+
+3. Give the agent one small task:
+
+   ```text
+   deliver <describe one small change>; keep landing = "leave"
+   ```
+
+4. Answer the brief questions and approve the plan. At completion, inspect the reported branch and test results. The run does not push, open a PR or merge with `landing = "leave"`.
+
+</details>
+
+<details>
+<summary><strong>Paseo</strong></summary>
+
+You need [Paseo](https://github.com/getpaseo/paseo) with its daemon running, an authenticated agent provider, Node.js/npm for `npx`, and the [shared prerequisites](#prerequisites). Use a small GitHub repository you own, with a clean working tree and a remote default branch.
+
+1. Install the skills on the machine where your Paseo agents run, where their harness can discover them:
+
+   ```bash
+   npx skills add flyingnobita/flyingnobita-deliver -g
+   npx skills add mattpocock/skills -g
+   ```
+
+2. In Paseo, create four agent profiles with the IDs `planner`, `implementer`, `reviewer` and `qa`. Choose a provider and model your account can access for each. Configure the planner in plan mode. These profiles live in Paseo, rather than in `delivery.toml`.
+
+3. Open your repository in Paseo and start a fresh Claude Code or Codex session with access to the Paseo MCP tools and installed skills. Run:
+
+   ```text
+   /deliver-setup
+   ```
+
+   Ask setup: "Use my existing planner, implementer, reviewer and qa profiles. Validate all four profiles. Set max_workers = 1 and landing = \"leave\"."
+
+   Review the proposed settings and approve them. Setup checks the caller's Paseo connection and profile availability, validates the profiles with no-edit smoke tasks, and records shared delivery settings in `docs/agents/delivery.toml`. Resolve any reported blocker before continuing.
+
+4. Give the agent one small task:
+
+   ```text
+   deliver <describe one small change>; keep landing = "leave"
+   ```
+
+   Answer the brief questions and approve the plan. At completion, inspect the reported branch and test results. The run does not push, open a PR or merge with `landing = "leave"`.
+
+</details>
+
+## Harness
+
+The following harnesses are supported through Herdr, Orca and Paseo:
+
+- Claude Code
+- Codex
+- Antigravity
+- Pi
+- omp
+- OpenCode
+
+Other harnesses may require additional integration work.
 
 ## Roles
 
@@ -12,29 +132,21 @@ Runs [Matt Pocock's skills](https://github.com/mattpocock/skills) (`grilling`, `
 
 Each role except the orchestrator gets its own profile. For example:
 
-| Role | Harness | Model | Effort |
-|---|---|---|---|
-| Planner | `claude` | `claude-opus-5-5` | `high` |
-| Implementer | `pi` | `opencode-go/deepseek-v4.1-flash` | `high` |
-| Reviewer | `codex` | `gpt-6.1-sol` | `low` |
-| QA | `codex` | `gpt-6.1-sol` | `low` |
-
-Supported harnesses by host:
-
-| Host | Harnesses |
-|---|---|
-| Herdr | `claude`, `codex`, `agy`, `pi`, `omp`, `opencode` |
-| Orca | any agent Orca can launch, such as `claude`, `codex` and `pi` |
-| Paseo | your Paseo agent profiles named `planner`, `implementer`, `reviewer` and `qa`, each with its own provider and model |
+| Role        | Harness  | Model                             | Effort |
+| ----------- | -------- | --------------------------------- | ------ |
+| Planner     | `claude` | `claude-opus-5-5`                 | `high` |
+| Implementer | `pi`     | `opencode-go/deepseek-v4.1-flash` | `high` |
+| Reviewer    | `codex`  | `gpt-6.1-sol`                     | `low`  |
+| QA          | `codex`  | `gpt-6.1-sol`                     | `low`  |
 
 ## Skills
 
-| Skill | What it does | How to run it |
-|---|---|---|
-| [`deliver`](skills/deliver/SKILL.md) | Runs a full delivery | `deliver <input>` (issue URL, `#N`, spec or brief) |
-| [`deliver-setup`](skills/deliver-setup/SKILL.md) | Checks prerequisites, configures role profiles, validates hosts | `/deliver-setup` |
-| [`deliver-review`](skills/deliver-review/SKILL.md) | Reviews and repairs an existing branch against standards and spec | `/deliver-review` |
-| [`deliver-retro`](skills/deliver-retro/SKILL.md) | Looks back over past runs and proposes fixes to the skills and profiles | `/deliver-retro` |
+| Skill                                              | What it does                                                            | How to run it                                      |
+| -------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------- |
+| [`deliver`](skills/deliver/SKILL.md)               | Runs a full delivery                                                    | `deliver <input>` (issue URL, `#N`, spec or brief) |
+| [`deliver-setup`](skills/deliver-setup/SKILL.md)   | Checks prerequisites, configures role profiles, validates hosts         | `/deliver-setup`                                   |
+| [`deliver-review`](skills/deliver-review/SKILL.md) | Reviews and repairs an existing branch against standards and spec       | `/deliver-review`                                  |
+| [`deliver-retro`](skills/deliver-retro/SKILL.md)   | Looks back over past runs and proposes fixes to the skills and profiles | `/deliver-retro`                                   |
 
 The `flyingnobita-` prefix is a fleet convention, not part of these names. Fleet installs still see `flyingnobita-deliver`, `flyingnobita-deliver-setup` and so on, and the suite resolves both forms.
 
