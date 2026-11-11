@@ -87,15 +87,17 @@ You need [Paseo](https://github.com/getpaseo/paseo) with its daemon running, an 
 
 2. In Paseo, create four agent profiles with the IDs `planner`, `implementer`, `reviewer` and `qa`. Choose a provider and model your account can access for each. Configure the planner in plan mode. These profiles live in Paseo, rather than in `delivery.toml`.
 
-3. Open your repository in Paseo and start a fresh Claude Code or Codex session with access to the Paseo MCP tools and installed skills. Run:
+3. Open your repository in Paseo and start a fresh Claude Code or Codex session with access to the Paseo MCP tools and installed skills. In Claude Code, send:
 
    ```text
    /deliver-setup
    ```
 
+   Codex has no `/deliver-setup` command, so name the `deliver-setup` skill in your request instead.
+
    Ask setup: "Use my existing planner, implementer, reviewer and qa profiles. Validate all four profiles. Set max_workers = 1 and landing = \"leave\"."
 
-   Review the proposed settings and approve them. Setup checks the caller's Paseo connection and profile availability, validates the profiles with no-edit smoke tasks, and records shared delivery settings in `docs/agents/delivery.toml`. Resolve any reported blocker before continuing.
+   Review the proposed settings and approve them. Setup checks the caller's Paseo connection and profile availability, validates the profiles with no-edit smoke tasks, and records shared delivery settings in `docs/agents/delivery.toml`. Approve the session's requests to create Paseo workspaces and agents when your harness asks: a denied request leaves that profile unvalidated and setup stops there. Resolve any other reported blocker before continuing.
 
 4. Give the agent one small task:
 

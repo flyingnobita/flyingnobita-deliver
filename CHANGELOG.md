@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-11, 2026 - 11:21 PM +08 - Validate the Paseo Quick start against `a5cfdff` with a disposable repository and a first-time setup and delivery: tell the user to approve the session's Paseo workspace and agent creation, name the setup skill for Codex instead of a slash command, and stop setup from opening hidden background workspaces.
+
 - Nov-11, 2026 - 10:44 PM +08 - Accept Orca's `run-current` response without runtime metadata in the caller preflight, so a Codex caller on Orca 1.4.256 is confirmed instead of reported broken.
 - Nov-11, 2026 - 10:44 PM +08 - Stop passing a delivery request ID to `worker-start --retry-request`; Orca accepts only the native request UUID it reported, and the walkthrough's first planner smoke was rejected until the flag was omitted.
 - Nov-11, 2026 - 10:30 PM +08 - Validate the Orca Quick start against `a87f495` with an isolated install and a disposable repository: name the setup skill in the Codex request instead of a slash command, and record the profile, setup and delivery evidence.

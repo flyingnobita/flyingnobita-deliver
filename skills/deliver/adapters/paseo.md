@@ -27,7 +27,7 @@ Omit absent values.
 
 | Operation | Paseo |
 |---|---|
-| Create a workspace | `create_workspace` with `isolation: worktree`, `mode: branch-off`, `path` = repo root, `branchName`, and an explicit `baseBranch` (`origin/<default>` for a direct repo, `upstream/<default>` for an upstream repo). It registers the project; keep the returned `workspaceId` and `cwd`. |
+| Create a workspace | `create_workspace` with `isolation: worktree`, `mode: branch-off`, `path` = repo root, `branchName`, and an explicit `baseBranch` (`origin/<default>` for a direct repo, `upstream/<default>` for an upstream repo). It registers the project; keep the returned `workspaceId` and `cwd`. Leave `background` unset; set it only when the user asked for a workspace hidden from the sidebar. |
 | Start a role | `create_agent` with the materialized profile, `workspaceId`, a title `<Role>: <work>`, and the role brief as `initialPrompt`. Leave `notifyOnFinish` at its default. |
 | Send a follow-up | `send_agent_prompt` to the same role agent, so it keeps its context. |
 | Wait for an event | Do nothing: finish, error and permission notifications arrive on their own. When a notification's response is truncated, read the rest with `get_agent_activity`. |
@@ -40,6 +40,8 @@ Omit absent values.
 The planner profile runs in plan mode and finishes with an `ExitPlanMode` permission request whose payload holds the plan (`planText`, `planFilePath`). Read the plan from it, then answer `deny` with the message "Plan received; the orchestrator runs implementation". Approving it would turn the planner into an implementer.
 
 ## Permission rule
+
+The orchestrator's own `create_workspace` and `create_agent` calls are also gated by its harness. When the harness prompts, ask the user to approve them: a harness's auto mode may deny agent creation without a prompt, which leaves the profile unvalidated and stops setup.
 
 Approve a role's request when both hold:
 
