@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-11, 2026 - 09:54 PM +08 - Record the installed revision a retro ran at in its ledger entry and name the Skills CLI lock's live path, so a behaviour difference after an install update has a revision to compare.
+
 - Nov-11, 2026 - 08:26 PM +08 - Tell setup's prerequisite table that a harness session started before a Herdr integration loads reports no identity, so it must restart or supply its native session ID.
 - Nov-11, 2026 - 08:26 PM +08 - Correct the Herdr Quick start: Codex has no `/deliver-setup` command and selects the setup skill from a plain request that names it and the settings.
 - Nov-11, 2026 - 07:38 PM +08 - Verify the installed delivery suite against `a5cfdff`: record the pre-update inventory, recovery snapshot, per-installation revisions and gaps, name the prefix tooling's superseded lock path, and report the Retro run that overlapped the install window.

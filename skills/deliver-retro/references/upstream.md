@@ -13,8 +13,11 @@ requirements, writing guidance and recommendations with `environment.md`.
 An unavailable copy is a comparison gap, not a blocker to the local review.
 
 Record the revision compared: a Skills CLI install has no git revision, so use
-the copy's `skillFolderHash` from the Skills CLI lock (`~/.agents/.skill-lock.json`
-by default), together with its `updatedAt` date. A git checkout instead uses
+the copy's `skillFolderHash` from the Skills CLI lock
+(`~/.local/state/skills/.skill-lock.json`; older installs keep a copy at
+`~/.agents/.skill-lock.json`), together with its `updatedAt` date. The hash is
+the git tree hash of the skill directory, so it matches
+`git rev-parse <commit>:skills/<skill>`. A git checkout instead uses
 `git -C <install> rev-parse HEAD`. A plain copy with neither is recorded by path
 and comparison date.
 
