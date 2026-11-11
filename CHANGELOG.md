@@ -1,8 +1,8 @@
 # Changes
 
 - Nov-11, 2026 - 08:26 PM +08 - Tell setup's prerequisite table that a harness session started before a Herdr integration loads reports no identity, so it must restart or supply its native session ID.
-
 - Nov-11, 2026 - 08:26 PM +08 - Correct the Herdr Quick start: Codex has no `/deliver-setup` command and selects the setup skill from a plain request that names it and the settings.
+- Nov-11, 2026 - 07:38 PM +08 - Verify the installed delivery suite against `a5cfdff`: record the pre-update inventory, recovery snapshot, per-installation revisions and gaps, and note that the prefix tooling still reads the superseded lock path.
 
 - Nov-11, 2026 - 07:25 PM +08 - Run both Python regression suites in GitHub Actions on Python 3.11 for every pull request and every push to `main`, so a failing suite fails the check.
 
