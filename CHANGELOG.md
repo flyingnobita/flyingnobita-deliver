@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-12, 2026 - 12:54 AM +08 - Make the runtime `wait` the single completion observation: one call holds through background work and returns a bounded pane tail marked `tail_truncated` when the pane held more lines than returned or the 4000-character cap clipped it, the attempt's `waits` count refuses a third call, and the Herdr adapter stops chaining `herdr agent wait`, `agent get`, `agent read` and terminal input to poll a worker pane.
+
 - Nov-11, 2026 - 11:21 PM +08 - Validate the Paseo Quick start against `a5cfdff` with a disposable repository and a first-time setup and delivery: tell the user to approve the session's Paseo workspace and agent creation, name the setup skill for Codex instead of a slash command, and stop setup from opening hidden background workspaces.
 
 - Nov-11, 2026 - 10:44 PM +08 - Accept Orca's `run-current` response without runtime metadata in the caller preflight, so a Codex caller on Orca 1.4.256 is confirmed instead of reported broken.

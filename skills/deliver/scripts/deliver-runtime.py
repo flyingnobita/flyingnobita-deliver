@@ -905,19 +905,64 @@ def busy_processes(worktree, pattern):
     return sorted(found, key=lambda process: process['pid'])
 
 
+def pane_tail(binary, pane, lines, timeout):
+    """One bounded terminal read for the wait receipt; a failed read is evidence, not a crash.
+
+    Asks for one line more than it returns: a longer answer proves the tail was
+    cut, so a full-looking receipt is distinguishable from a truncated one.
+    """
+    try:
+        result = subprocess.run([binary, 'agent', 'read', pane, '--source', 'recent-unwrapped',
+                                 '--lines', str(lines + 1)], text=True, capture_output=True,
+                                timeout=timeout, check=False)
+    except (subprocess.SubprocessError, OSError, ValueError) as error:
+        return {'tail_error': str(error)}
+    if result.returncode:
+        return {'tail_error': result.stderr.strip() or 'agent read failed'}
+    body = result.stdout.rstrip().splitlines()
+    text = '\n'.join(body[-lines:])
+    return {'tail': text[-4000:], 'tail_truncated': len(body) > lines or len(text) > 4000}
+
+
+def claim_wait(directory, data):
+    """Record one wait against the attempt's budget under the writer lock; a third call is refused."""
+    with (directory / 'writer.lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise ValueError('another orchestrator is mutating this run') from None
+        record = json.loads((directory / 'run.json').read_text())
+        attempt = record['tasks'][data['task']]['attempts'][-1]
+        require(data['attempt'] == attempt['id'], 'stale attempt')
+        require(attempt.get('waits', 0) < 2,
+                'wait budget exhausted for this attempt; followup, handoff or abandon instead')
+        attempt['waits'] = attempt.get('waits', 0) + 1
+        atomic(directory / 'run.json', record)
+    return attempt
+
+
 def wait(data):
-    """Read-only, bounded wait on one attempt: report, blocked prompt, background work or silence."""
+    """Bounded wait on one attempt: report, blocked prompt, background work or silence.
+
+    One call holds through background work and returns the observed status and a
+    bounded pane tail, so no second observation command is needed to inspect it.
+    The attempt may be waited on twice; the third call is refused, so polling has
+    no path through this command.
+    """
     directory = state_root(data) / identifier(data['run_id'])
     require(directory.is_dir() and not directory.is_symlink(), 'run missing or symlinked')
-    record = json.loads((directory / 'run.json').read_text())
-    attempt = record['tasks'][data['task']]['attempts'][-1]
-    require(data['attempt'] == attempt['id'], 'stale attempt')
     timeout, poll = data.get('timeout_s', 300), data.get('poll_s', 5)
     require(isinstance(timeout, (int, float)) and 0 < timeout <= 600 and
             isinstance(poll, (int, float)) and 0 < poll <= timeout, 'wait must be bounded to 600 seconds')
+    lines = data.get('tail_lines', 40)
+    require(type(lines) is int and 0 <= lines <= 200, 'wait tail must be bounded to 200 lines')
+    attempt = claim_wait(directory, data)
     pattern = data.get('busy_pattern', r'\b(test|pytest|vitest|jest)\b')
+    binary = data.get('herdr_bin', 'herdr')
     worktree = Path(attempt['resource']['worktree']).resolve()
-    deadline = time.monotonic() + timeout
+    # Reserve the one-shot pane read inside the same deadline, never after it.
+    read_budget = min(10.0, timeout / 2) if lines else 0.0
+    deadline = time.monotonic() + timeout - read_budget
     while True:
         status, busy = 'unknown', []
         if Path(attempt['report_path']).exists():
@@ -925,7 +970,7 @@ def wait(data):
         else:
             try:
                 status = json.loads(subprocess.check_output(
-                    [data.get('herdr_bin', 'herdr'), 'agent', 'get', attempt['resource']['pane']],
+                    [binary, 'agent', 'get', attempt['resource']['pane']],
                     text=True, timeout=10))['result']['agent'].get('agent_status', 'unknown')
             except (subprocess.SubprocessError, OSError, ValueError, KeyError):
                 pass
@@ -934,8 +979,12 @@ def wait(data):
             if status in ('idle', 'done'):
                 state = 'background-running' if busy else 'settled-no-report'
         if state not in (None, 'background-running') or time.monotonic() >= deadline:
-            return {'state': state or 'timeout', 'agent_status': status, 'busy': busy,
-                    'report_path': attempt['report_path']}
+            receipt = {'state': state or 'timeout', 'agent_status': status, 'busy': busy,
+                       'report_path': attempt['report_path']}
+            if lines:
+                receipt.update(pane_tail(binary, attempt['resource']['pane'], lines,
+                                         min(read_budget, max(0.1, deadline + read_budget - time.monotonic()))))
+            return receipt
         time.sleep(poll)
 
 
