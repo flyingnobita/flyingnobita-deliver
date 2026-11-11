@@ -15,7 +15,12 @@ agent directories other than Claude Code hold no delivery skills.
 | Skills CLI global | `~/.agents/skills/flyingnobita-deliver-review` | prefixed folder | `5495393` | none beyond the prefix rewrite |
 | Skills CLI global | `~/.agents/skills/flyingnobita-deliver-retro` | prefixed folder | `5495393` | none beyond the prefix rewrite |
 | Claude Code view | `~/.claude/skills/flyingnobita-deliver{,-setup,-review,-retro}` | absolute symlinks to the rows above | inherited | n/a |
-| Codex, OpenCode, Cursor, Grok, project scope | `~/.codex/skills`, `~/.config/opencode/skills`, `~/.cursor/skills`, `~/.grok/skills` | no delivery skills installed | n/a | n/a |
+| Codex | `~/.codex/skills` | no delivery skills installed | n/a | n/a |
+| OpenCode | `~/.config/opencode/skills` | empty | n/a | n/a |
+| Cursor | `~/.cursor/skills` | path absent | n/a | n/a |
+| Grok | `~/.grok/skills` | empty | n/a | n/a |
+| PromptScript | no skill directory on this host | path absent | n/a | n/a |
+| Project scope | none | no `skills-lock.json` for this suite | n/a | n/a |
 
 Lock entries before the update: `~/.local/state/skills/.skill-lock.json` keys
 `deliver`, `deliver-setup`, `deliver-review`, `deliver-retro`, `updatedAt`
@@ -32,19 +37,27 @@ and were not touched.
 
 ## Live-state check at update time
 
-No delivery run was active on this host at 19:34 +08:
+The install window was 19:34–19:36 +08. No delivery run was dispatching work: no
+`deliver-runtime.py` or `deliver-orca-preflight.py` process was running and no delivery
+`writer.lock` was held.
 
-- no `deliver-runtime.py` or `deliver-orca-preflight.py` process;
-- no file under `~/.local/state/flyingnobita-deliver` written in the preceding 6 hours;
-- no recent `writer.lock`;
-- Herdr workspaces: `w1B` idle, `w1C` (DLV-14) idle, `w1D` (DLV-9, this session)
-  working, `w1E` (DLV-10) working, `w1F` (DLV-13) working. These are issue-implementing
-  agents that share the installation; none is a delivery run.
+One suite skill invocation was nonetheless in flight. A Retro run for run
+`1fed616647bc48c58e8aa91871865031` (`omarchy-notification-center`, Herdr) began at
+19:32:21 and its record was last written at 19:42, so its window overlaps the update.
+The record parses and carries the full `checks`, `gates`, `profiles`, `upstream` and
+`candidates` sections, and the four skill trees were byte-identical to `a5cfdff`
+afterwards, so the overlap did not corrupt the install or the run result. A copy of
+that record sits in the recovery snapshot as `concurrent-retro-record.json`.
 
-The shared installation was nonetheless in use, so the update was made reversible
-instead of asking those agents to stop: content was snapshot first, stale folders were
-replaced only after the new install verified, and the prefixed names were kept as
-symlink aliases so a live agent's `flyingnobita-deliver*` references still resolve.
+Three sibling issue workspaces (DLV-10, DLV-13, DLV-14) were also active against the
+same installation. The update was therefore made reversible instead of asking them to
+stop: content was snapshotted first, stale folders were replaced only after the new
+install verified, and the prefixed names were kept as symlink aliases so a live
+`flyingnobita-deliver*` reference still resolves.
+
+Because that overlap means the "no affected delivery is active" condition was not
+strictly met, it is an explicit deviation from the ticket, recorded here with the
+evidence above rather than claimed as satisfied.
 
 ## Recovery information
 
@@ -55,14 +68,23 @@ Snapshot written before any change, at 19:30 +08:
   agents-skills-deliver-4.tgz   48 entries, the four v0.2.0 skill folders
   skill-lock.json               legacy ~/.agents/.skill-lock.json copy
   skill-prefix-state.json       ~/.agents/.skill-prefix-state.json copy
+  state-lock-after-update.json  active CLI lock as written by this update
+  concurrent-retro-record.json  the Retro record that overlapped the update
   SHA256SUMS
 ```
 
 ```text
 c6afeb87664ccdc36d78369ff8b65ff35b705428c753823fd8a23b78a11c2ac2  agents-skills-deliver-4.tgz
+f8613d1a428b9adc6e89090bc5373c240cb29a18be52a380f9db85f22a1f9ae2  concurrent-retro-record.json
 d289f8b79f793bd74a93a357483eafe6a102d01cb6f1e59230a5643b494427a5  skill-lock.json
 a7cccacdadbc42faf3300f7aec31f1820aa5e9f0801bac86b71f4ff7bbae23af  skill-prefix-state.json
+5bbd47feac6780e3d30d10c673bceed5493e80cc9277a66c0316302c4e39c45f  state-lock-after-update.json
 ```
+
+The active lock (`~/.local/state/skills/.skill-lock.json`) is rewritten in place by the
+CLI, so its pre-update content was not captured; only the post-update copy is kept. To
+reconstruct a v0.2.0 lock, install the tag: `npx skills add
+flyingnobita/flyingnobita-deliver#v0.2.0 -g`.
 
 Restore the previous content:
 
@@ -84,13 +106,15 @@ tar -xzf ~/.local/state/deliver-skill-backups/dlv-9-20261111T113040Z/agents-skil
    the canonical install and the Claude Code link succeeded.
 3. Removed the four stale prefixed folders, then recreated each prefixed name as a
    symlink to its canonical folder.
-4. `npx skills@latest check` no longer lists any of the four, and lists 84 unrelated
-   skills still behind their own sources. No `has local changes` report for the suite.
+4. `npx skills@latest check` no longer lists any of the four and reports no local
+   changes for them. Its remaining 84 update notices are unrelated skills from other
+   sources.
 
 ## Verification against `a5cfdff`
 
-`git rev-parse HEAD` = `git rev-parse origin/main` = `a5cfdff40e0dcdbfabdd0ba40c0fe3fe8ceada54`
-in this worktree, so the install source tip equals the record below.
+`git rev-parse origin/main` was `a5cfdff40e0dcdbfabdd0ba40c0fe3fe8ceada54` when the
+install ran (19:34 +08), and the worktree was checked out at `a5cfdff` while the
+comparisons below were made. Later commits on this branch carry this receipt only.
 
 | Skill | Canonical path | Files | Tree SHA-256 | `diff -r` vs `skills/<name>` at `a5cfdff` |
 | --- | --- | --- | --- | --- |
@@ -100,7 +124,7 @@ in this worktree, so the install source tip equals the record below.
 | deliver-retro | `~/.agents/skills/deliver-retro` | 8 | `6e37ba7707ddf1ccc11adb28e0e7ef36b9a64a3ed9424a27767ef051ff5d51bb` | identical |
 
 Every tree SHA-256 is `find . -type f | sort | xargs sha256sum | sha256sum` over the
-installed folder, so the same command on a future install identifies the revision.
+installed folder, which is how a later install is compared with this record.
 
 Required artifacts for this revision:
 
@@ -129,24 +153,31 @@ Lock state after the update, `~/.local/state/skills/.skill-lock.json`:
 | --- | --- | --- | --- | --- |
 | Skills CLI global (`~/.agents/skills`) | `a5cfdff` | `skills ls -g`, four canonical names | byte-identical to `a5cfdff`, required artifacts present | prefixed aliases are untracked by the CLI |
 | Claude Code (`~/.claude/skills`) | `a5cfdff` via symlink | four canonical links plus four prefixed links | links resolve, content identical | each skill appears under two names |
-| Codex, OpenCode, Cursor, Grok | not installed | n/a | n/a | out of scope, unchanged |
-| Remote Herdr hosts | unknown | unreachable | unverified | not updated from this session |
+| Codex (`~/.codex/skills`) | no install | n/a | n/a | no delivery skill before or after |
+| OpenCode (`~/.config/opencode/skills`) | no install | n/a | n/a | directory is empty |
+| Cursor (`~/.cursor/skills`) | no install | n/a | n/a | path absent |
+| Grok (`~/.grok/skills`) | no install | n/a | n/a | directory is empty |
+| PromptScript | no install | n/a | refused a global install | no skill directory on this host |
+| Remote host `thinkpad` | unknown | unreachable from this session | unverified | not updated |
+| Remote host `xps` | unknown | unreachable from this session | unverified | not updated |
+| Remote host `lifebook` | unknown | unreachable from this session | unverified | not updated |
+| Remote host `rpi5` | unknown | unreachable from this session | unverified | not updated |
+| Remote host `mbp-m4` | unknown | unreachable from this session | unverified | not updated |
 
 ## Gaps
 
-1. Prefix tooling reads the old lock path. `~/dotfiles/scripts/common/npx-skills-prefix`
-   uses `~/.agents/.skill-lock.json`, while Skills CLI 1.8.1 writes
-   `~/.local/state/skills/.skill-lock.json`. A prefix `strip`/`apply` cycle therefore
-   cannot see this install, and the fleet's prefixed names would not be recreated by it.
-   The current prefixed aliases are hand-made symlinks, and the stale legacy lock keeps
-   prefixed keys for all skills.
-2. The prefixed aliases are a compatibility measure for agents that started before the
-   update and for the fleet's prefixed naming. Remove them once no session depends on the
-   prefixed names: `rm ~/.agents/skills/flyingnobita-deliver{,-setup,-review,-retro}`
-   together with `~/.claude/skills/flyingnobita-deliver{,-setup,-review,-retro}`.
-3. PromptScript rejections leave one agent target without a global install. No
-   PromptScript skill directory exists on this host, so nothing regressed there.
-4. Remote-host installations were not inspected or updated.
-5. `npx skills add` runs from the branch tip, and the lock records no commit. The
+1. The fleet's skill-prefix tooling reads `~/.agents/.skill-lock.json`, while Skills CLI
+   1.8.1 writes `~/.local/state/skills/.skill-lock.json`. A prefix `strip`/`apply` cycle
+   therefore does not see this install, so the prefixed names were restored as symlinks
+   instead, and the superseded lock still carries prefixed keys for every skill.
+2. The prefixed aliases keep the fleet naming working, which the README states the suite
+   supports. They are untracked by the CLI, so `skills ls` and `skills check` see only
+   the four canonical names.
+3. PromptScript refused the global install; no PromptScript skill directory exists on
+   this host, so nothing regressed there.
+4. The remote-host installations in the table above were not inspected or updated.
+5. `npx skills add` installs from the branch tip and the lock records no commit. The
    revision claim rests on the byte comparison above, taken while `origin/main` was
    `a5cfdff`.
+6. A Retro run overlapped the install window (see above). Its record is complete, but
+   the run cannot be called isolated from the update.
