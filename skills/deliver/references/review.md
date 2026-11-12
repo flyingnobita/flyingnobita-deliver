@@ -26,7 +26,11 @@ is findings plus evidence; worker completion is not a clean-review verdict.
      wrong spec behavior.
    - **Mention:** judgement-call smells, unless a small repair is inside the plan.
    A finding changing scope returns to the user before edits.
-3. Dispatch all must-fix findings to the implementer as a follow-up. Use TDD at
+3. Dispatch all must-fix findings to the implementer as a follow-up. When the
+   concurrency limit is reached, close the finished gate task first: verify it,
+   or abandon it with the user's recorded decision, because an unverified task
+   still holds its worker slot and this attempt is refused with
+   `concurrency limit reached`. Use TDD at
    the confirmed seams following repository commit rules (or a configured custom commit skill). Reuse the agent when the
    adapter can prove its identity and settings; otherwise start a new one with
    the saved context. The orchestrator owns this dispatch, not the reviewer.
