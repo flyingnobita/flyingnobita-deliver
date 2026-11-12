@@ -1,5 +1,6 @@
 # Changes
 
+- Nov-12, 2026 - 03:34 PM +08 - Have each `deliver-implement` worker rebase onto the target tip and re-run its tests before reporting done, so conflicts with tickets that landed meanwhile are resolved in the worker's own session instead of costing the ticket its one repair retry; the orchestrator's landing rebase stays to catch tickets that land in between.
 - Nov-12, 2026 - 03:12 PM +08 - Land `deliver-implement` tickets as linear history: the orchestrator rebases each ticket branch onto the target tip, verifies it, and fast-forwards the target, so `update-fleet publish` accepts the result instead of refusing a `merge <branch>` commit.
 - Nov-12, 2026 - 02:55 PM +08 - Add `deliver-implement`, a fifth suite skill that implements agreed tickets in parallel implementer workers (one worktree each, within `max_workers` and ticket dependencies), verifies and merges each into the branch the user started on, notifies the user as soon as a ticket blocks, and cleans up; the runtime gains an `implement` run purpose that authorizes only the implementer role.
 - Nov-12, 2026 - 12:28 PM +08 - Name every test group's kind in the plan, one of the contract's `behavioral`, `guard` or `bootstrap`, and plan a new public surface as `bootstrap` with a module-scope import and a plan-backed reason so its red is bootstrap absence rather than an import error (DLV-23).

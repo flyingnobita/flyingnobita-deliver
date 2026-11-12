@@ -75,8 +75,10 @@ request's order:
 3. Start one implementer worker in it with: the ticket reference, the command
    to run `implement` (or `mattpocock-implement`) for that ticket alone, the
    repo's commit rules (or the configured `commit_skill`), a `Fixes #N` footer
-   for a GitHub issue, and the report to return: commits, test and lint
-   commands with one status line each.
+   for a GitHub issue, the target branch name, and a last step before
+   reporting: `git rebase <target>` onto its current tip, resolve any
+   conflict, and re-run the tests. Its report: commits, the target SHA it
+   rebased onto, and test and lint commands with one status line each.
 
 Refill the frontier each time a ticket lands.
 
