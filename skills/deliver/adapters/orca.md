@@ -121,8 +121,15 @@ All commands take JSON on stdin and include delivery `run_id` and optional
    A proven failed startup can be normalized as a failed report with its native
    failure evidence; a timeout or missing receipt cannot. Retain detailed role
    artifacts beside the immutable JSON report before removing any workspace.
-4. After independently running the stage's checks, call `orca-verify` with
-   `job`, matching `dispatch`, exact `commit`, revalidated runtime ID as `host`
+4. After the orchestrator rebases a reported branch onto the moved target, call
+   `orca-rebased` with `job`, `onto`, the actual clean worktree `commit` and
+   `evidence`. The runtime accepts only an `onto` descending from the job base
+   whose `onto..commit` patch-ids equal the report's `base..commit`; a conflict
+   or changed patch goes back to the worker. Record it before verifying the
+   rebased tip.
+5. After independently running the stage's checks, call `orca-verify` with
+   `job`, matching `dispatch`, exact `commit` (the rebased tip when step 4
+   recorded one), revalidated runtime ID as `host`
    and command/result `evidence` plus the contract's structured `verification`. A failed report, pending question, dirty tree
    or changed HEAD cannot pass. Gate status is distinct from native success.
 

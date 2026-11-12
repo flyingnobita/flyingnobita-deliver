@@ -90,17 +90,18 @@ Refill the frontier each time a ticket lands.
 Land one ticket at a time, keeping the target's history **linear**: no merge
 commits, so a later publish accepts the range.
 
-1. Record the worker's report: `report` on Herdr, the adapter's receipt step on
-   Orca, and on Paseo a run-directory note of its commit, target SHA and check
-   lines. In the ticket's worktree, with the tree clean, run
-   `git rebase <target-sha>`; when that moved the branch, record it with
-   `rebased` (`onto`, `commit`, `evidence`).
+1. Record the worker's report: `report` on Herdr, `orca-report` on Orca, and on
+   Paseo a run-directory note of its commit, target SHA and check lines. In the
+   ticket's worktree, with the tree clean, run `git rebase <target-sha>`; when
+   that moved the branch, record it with `rebased` on Herdr or `orca-rebased` on
+   Orca (`onto`, `commit`, `evidence`).
    The runtime accepts only a rebase whose patches equal the reported ones, so
    the work it verifies is the work the worker reported. On Paseo, write that
    receipt in the run directory instead: `onto`, before/after SHAs and the
    patch-id comparison. On a conflict run `git rebase --abort`.
 2. Run the full suite and linters there yourself, then `verify` the branch tip
-   (on Paseo, save the commands, output and result in the run directory).
+   (`orca-verify` on Orca; on Paseo, save the commands, output and result in the
+   run directory).
    Make any red-proof probe in a temporary copy of the worktree, never in the
    worktree itself. A conflict, a refused rebase claim or a failure goes back
    to the ticket's worker once with the receipt (`followup` on Herdr,
