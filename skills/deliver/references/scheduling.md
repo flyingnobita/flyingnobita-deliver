@@ -37,6 +37,13 @@ commit the claim first when tracked, following repository commit rules (or a con
 Each worker branches from the current integration tip. Record actual branch,
 workspace and task identities instead of assuming a naming convention.
 
+Close the finished gate task before dispatching repair. A completed review
+still holds a worker slot until it is verified, so with `max_workers` reached
+the repair `attempt` is refused with `concurrency limit reached`: verifying the
+gate task, or abandoning it with `evidence` and the user's recorded decision,
+is the step before opening the repair attempt, and the verified gate releases
+its slot first.
+
 The frontier contains ready agent tickets whose blockers are **verified and
 merged**, excluding schedule-held tickets. Native task completion alone never
 unblocks delivery. Merge one ticket at a time after its independent build gates;
