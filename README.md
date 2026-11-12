@@ -21,7 +21,8 @@ You can still hand `deliver` a spec or tickets you wrote with `/to-spec` or `/to
 
 On top of those skills, `deliver` adds:
 
-- Its own harness, model and effort for each role. Plan with a strong model, implement with a cheaper one, and review with another vendor's.
+- Its own harness, model and effort for each role. For example, review with a different vendor's model from the one that wrote the code.
+- **Lower costs.** Give the **implementer** a cheaper model and keep the expensive ones for the **planner** and the **orchestrator**. The implementer runs longest: it writes the code, runs the tests and fixes what fails. The orchestrator reruns the tests itself, so it catches a weaker model's mistakes before they ship.
 - Parallel builds. Independent parts of a change become tickets, each with its own worktree and implementer, up to `max_workers` at once.
 - A host to run them on. Each agent is a visible session in [Herdr](https://herdr.dev), [Paseo](https://paseo.sh) or [Orca](https://www.onorca.dev).
 - Checks between handoffs. The orchestrator reruns the tests and linters itself before it accepts an agent's report.
