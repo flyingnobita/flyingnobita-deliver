@@ -6,7 +6,9 @@ Runs [Matt Pocock's skills](https://github.com/mattpocock/skills) (`grilling`, `
 
 ## Already using Matt Pocock's skills?
 
-Then you can now spread them across several agents and models. In one session, you load `grilling`, `tdd`, `code-review` and `pr` yourself, one after another, and one model does every step. `deliver` follows the same implement workflow and hands each step to the role that owns it:
+Then you no longer need a separate prompt for each step: grilling, writing the spec, implementing, reviewing and writing the PR. Run `deliver` once and it does every step, handing each one to a role on the harness and model you chose. You still answer the grilling questions yourself.
+
+Each step uses the same skill you use today:
 
 | Step                      | Skill                         | Run by                      |
 | ------------------------- | ----------------------------- | --------------------------- |
