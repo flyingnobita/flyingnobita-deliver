@@ -83,7 +83,7 @@ Start the planner role, read-only, with the brief and the decisions. Its plan mu
 - the vertical **slices** of the work, in order, marking each **destructive** slice: one that deletes, rolls back, prunes or overwrites durable state, together with the stronger implementer profile it runs on ([pipeline.md](references/pipeline.md#build));
 - the **local preview** step when the user asked for one: what it activates, the activation command, the state it replaces, and how and when that state is restored, placed before the ship stage;
 - the **seams**: the public interfaces the tests go through, each with a line on what it catches and what it misses (`tdd` tests only at seams the user confirmed);
-- the commands for the tests, the full suite and the linters, and the plan's required test list by name;
+- the commands for the tests, the full suite and the linters, and the plan's required test list by name, each group with exactly one kind from the contract, `behavioral`, `guard` or `bootstrap`; a group testing a new public surface is `bootstrap`, imports it at module scope, and states its plan-backed reason ([test evidence](references/test-evidence.md));
 - when the product ships or fingerprints its own tree: the end-to-end command that prepares and validates the real artifact, and each gate it runs (freshness, fingerprint, leak checks), checked against every preparation step the plan requires so no required step is one a gate refuses;
 - shared-file ownership, available extension hooks and test commands that mutate
   source fixtures, with serialization or isolated-copy boundaries for those commands.
