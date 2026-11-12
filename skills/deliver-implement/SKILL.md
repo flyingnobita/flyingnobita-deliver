@@ -87,14 +87,21 @@ Refill the frontier each time a ticket lands.
 Land one ticket at a time, keeping the target's history **linear**: no merge
 commits, so a later publish accepts the range.
 
-1. In the ticket's worktree, with its worker finished and the tree clean, run
-   `git rebase <target-sha>`. On a conflict run `git rebase --abort`.
-2. Confirm `git rev-list --merges <target-sha>..<branch>` is empty, then run the
-   full suite and linters there yourself. A conflict, a merge commit or a
-   failure goes back to the ticket's worker once, with the receipt: it rebases
-   its branch onto the new target tip, resolves any conflict and re-runs its
-   tests. Repeat steps 1-2 on its next report. A second failure **blocks** the
-   ticket.
+1. Record the worker's report with the runtime's `report` (on Herdr; Orca and
+   Paseo use their adapter's record steps). In the ticket's
+   worktree, with the tree clean, run `git rebase <target-sha>`; when that
+   moved the branch, record it with `rebased` (`onto`, `commit`, `evidence`).
+   The runtime accepts only a rebase whose patches equal the reported ones, so
+   the work it verifies is the work the worker reported. On a conflict run
+   `git rebase --abort`.
+2. Run the full suite and linters there yourself, then `verify` the branch tip.
+   Make any red-proof probe in a temporary copy of the worktree, never in the
+   worktree itself. A conflict, a refused `rebased` claim or a failure goes
+   back to the ticket's worker once through `followup`, with the receipt: it
+   rebases its branch onto the new target tip, resolves any conflict and
+   re-runs its tests. Repeat steps 1-2 on its next report. A second failure
+   **blocks** the ticket. A target that moved before `verify` is not a
+   failure: rebase again and record `rebased` again.
 3. Fast-forward the target to the rebased branch tip. When the target is
    checked out, run `git merge --ff-only <branch>` in that checkout; git
    refuses rather than overwrite local changes, and that refusal blocks the
@@ -116,6 +123,9 @@ evidence; its dependents stay blocked.
 Done when every ticket has landed, is blocked, or is abandoned.
 
 ## 4. Report
+
+Record the run's end with the runtime's `checkpoint`: stage `complete` when
+every ticket landed, otherwise `blocked`, with the landed range as evidence.
 
 Report: the target branch and its final SHA; each ticket as landed (its
 commit range), blocked (reason, kept worktree and window) or abandoned; the requested
