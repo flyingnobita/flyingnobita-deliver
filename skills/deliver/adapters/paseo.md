@@ -23,6 +23,23 @@ Read the profiles with `list_profiles` at setup. A missing profile is a blocker:
 
 Omit absent values.
 
+## Run record
+
+Paseo keeps native IDs and receipts; it does not call `deliver-runtime`. Before
+dispatch, create a private run directory outside the workspaces,
+`~/.local/state/flyingnobita-deliver/<run-id>/`, and write:
+
+- `run.md`: host, repo, target branch and starting SHA, effective implementer
+  profile, `max_workers`, claimed tickets and the user's request; append each
+  landing, block, abandonment and the final state;
+- `<ticket>-report.md`: the worker's commit, target SHA and one status line per
+  check;
+- `<ticket>-rebase.md`: `onto`, before/after SHAs and the patch-id comparison;
+- `<ticket>-verify.md`: the orchestrator's commands, output paths and result.
+
+These replace `create`/`approve`, `report`, `rebased`, `verify` and
+`checkpoint`. Retain the directory after cleanup.
+
 ## Operations
 
 | Operation | Paseo |

@@ -53,10 +53,13 @@ in [adapters](../deliver/adapters/),
    scheduled by `human_schedule` as in scheduling. Load `wizard` (or
    `mattpocock-wizard`) for each one and notify the user with the script path
    when it becomes ready. Its dependents wait until the user reports it done.
-8. **Run record:** `create` with `purpose: "implement"`, the resolved
-   `concurrency`, the implementer profile and the target branch as `base`, then
-   `approve` with `approved.tickets` holding the ticket list and the user's
-   request as `evidence`.
+8. **Run record:** on Herdr or Orca, `create` with `purpose: "implement"`, the
+   resolved `concurrency`, the implementer profile and the target branch as
+   `base`, then `approve` with `approved.tickets` holding the ticket list and
+   the user's request as `evidence`. On Paseo, open the adapter's run directory
+   instead and record the host, target name and SHA, implementer profile,
+   `max_workers`, tickets and request there; Paseo keeps native IDs and never
+   creates a runtime record.
 9. **Baseline:** run the full suite and linters on the target tip as the repo
    defines them. A failing baseline is a stop.
 
@@ -87,21 +90,25 @@ Refill the frontier each time a ticket lands.
 Land one ticket at a time, keeping the target's history **linear**: no merge
 commits, so a later publish accepts the range.
 
-1. Record the worker's report with the runtime's `report` (on Herdr; Orca and
-   Paseo use their adapter's record steps). In the ticket's
-   worktree, with the tree clean, run `git rebase <target-sha>`; when that
-   moved the branch, record it with `rebased` (`onto`, `commit`, `evidence`).
+1. Record the worker's report: `report` on Herdr, the adapter's receipt step on
+   Orca, and on Paseo a run-directory note of its commit, target SHA and check
+   lines. In the ticket's worktree, with the tree clean, run
+   `git rebase <target-sha>`; when that moved the branch, record it with
+   `rebased` (`onto`, `commit`, `evidence`).
    The runtime accepts only a rebase whose patches equal the reported ones, so
-   the work it verifies is the work the worker reported. On a conflict run
-   `git rebase --abort`.
-2. Run the full suite and linters there yourself, then `verify` the branch tip.
+   the work it verifies is the work the worker reported. On Paseo, write that
+   receipt in the run directory instead: `onto`, before/after SHAs and the
+   patch-id comparison. On a conflict run `git rebase --abort`.
+2. Run the full suite and linters there yourself, then `verify` the branch tip
+   (on Paseo, save the commands, output and result in the run directory).
    Make any red-proof probe in a temporary copy of the worktree, never in the
-   worktree itself. A conflict, a refused `rebased` claim or a failure goes
-   back to the ticket's worker once through `followup`, with the receipt: it
-   rebases its branch onto the new target tip, resolves any conflict and
-   re-runs its tests. Repeat steps 1-2 on its next report. A second failure
-   **blocks** the ticket. A target that moved before `verify` is not a
-   failure: rebase again and record `rebased` again.
+   worktree itself. A conflict, a refused rebase claim or a failure goes back
+   to the ticket's worker once with the receipt (`followup` on Herdr,
+   `send_agent_prompt` on Paseo): it rebases its branch onto the new target
+   tip, resolves any conflict and re-runs its tests. Repeat steps 1-2 on its
+   next report. A second failure **blocks** the ticket. A target that moved
+   before verification is not a failure: rebase again and record the new
+   receipt.
 3. Fast-forward the target to the rebased branch tip. When the target is
    checked out, run `git merge --ff-only <branch>` in that checkout; git
    refuses rather than overwrite local changes, and that refusal blocks the
@@ -125,7 +132,8 @@ Done when every ticket has landed, is blocked, or is abandoned.
 ## 4. Report
 
 Record the run's end with the runtime's `checkpoint`: stage `complete` when
-every ticket landed, otherwise `blocked`, with the landed range as evidence.
+every ticket landed, otherwise `blocked`, with the landed range as evidence. On
+Paseo, append the same final state to the run directory's run note instead.
 
 Report: the target branch and its final SHA; each ticket as landed (its
 commit range), blocked (reason, kept worktree and window) or abandoned; the requested
