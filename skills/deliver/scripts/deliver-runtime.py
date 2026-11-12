@@ -300,6 +300,18 @@ def git(repo, *args):
                                    stderr=subprocess.PIPE).strip()
 
 
+def patch_ids(repo, base, tip):
+    """The stable patch-id of each commit in base..tip, oldest first; merges are refused."""
+    require(not git(repo, 'rev-list', '--merges', base + '..' + tip), 'merge commit in range')
+    ids = []
+    for commit in git(repo, 'rev-list', '--reverse', base + '..' + tip).split():
+        diff = subprocess.check_output(['git', '-C', str(repo), 'show', '--format=', '--patch', commit])
+        line = subprocess.run(['git', '-C', str(repo), 'patch-id', '--stable'], input=diff,
+                              capture_output=True, check=True).stdout.decode().split()
+        ids.append(line[0] if line else '')
+    return ids
+
+
 def state_root(data):
     default = Path(os.environ.get('XDG_STATE_HOME', Path.home() / '.local/state')) / 'flyingnobita-deliver'
     root = Path(data.get('state_root', default)).expanduser().resolve()
@@ -762,6 +774,7 @@ def update_task(command, data, record, directory):
         attempt['worker_session'] = data['worker_session']
         attempt['completion_baseline'] = agent.get('completion_seq')
         atomic(directory / 'run.json', record)
+        deadline = time.monotonic() + timeout / 1000
         try:
             response = subprocess.run([binary, 'agent', 'prompt', target, data['prompt'],
                                        '--wait', '--until', 'working', '--until', 'blocked',
@@ -772,7 +785,20 @@ def update_task(command, data, record, directory):
             if response.returncode == 0:
                 attempt['status'] = 'observed'
                 attempt['acknowledged_at'] = observed_at()
-        except (subprocess.TimeoutExpired, OSError) as error:
+            elif 'agent_prompt_stalled' in response.stderr:
+                # Herdr's fixed 5 s start check is shorter than a slow harness's first turn.
+                # The prompt was accepted; watch for it to start, never resend it.
+                while time.monotonic() < deadline:
+                    late = json.loads(subprocess.check_output([binary, 'agent', 'get', target],
+                                      text=True, timeout=10))['result']['agent']
+                    if late.get('agent_status') in ('working', 'blocked') or \
+                            (late.get('completion_seq') or 0) > (attempt['completion_baseline'] or 0):
+                        attempt['status'] = 'observed'
+                        attempt['acknowledged_at'] = observed_at()
+                        attempt['late_acknowledgement'] = late.get('agent_status')
+                        break
+                    time.sleep(0.5)
+        except (subprocess.SubprocessError, OSError, ValueError, KeyError) as error:
             attempt['dispatch_response'] = {'error': str(error)}
         # Even success is only an observation. A matching report and verification are separate gates.
     elif command == 'dispatch-intent':
@@ -786,7 +812,8 @@ def update_task(command, data, record, directory):
         require(attempt['status'] == 'reported' and not task['verified'] and data.get('evidence'),
                 'followup requires unverified report and recorded answer/decision')
         head = check_resource(record, attempt['resource'])
-        require(head == json.loads(Path(attempt['report_path']).read_text())['commit'],
+        require(head in (json.loads(Path(attempt['report_path']).read_text())['commit'],
+                         attempt.get('rebased', {}).get('commit')),
                 'work changed since report; inspect before followup')
         chosen = requested_profile(record, task, data, attempt)
         attempt['status'] = 'continued'
@@ -881,12 +908,31 @@ def update_task(command, data, record, directory):
             atomic(path, report)
         attempt['status'] = 'reported'
         attempt['reported_at'] = observed_at()
+    elif command == 'rebased':
+        # The orchestrator's landing rebase onto a moved target; only identical patches qualify.
+        require(attempt['status'] == 'reported' and not task['verified'] and data.get('evidence'),
+                'rebase claim requires an unverified report and evidence')
+        report = json.loads(Path(attempt['report_path']).read_text())
+        head = check_resource(record, attempt['resource'])
+        require(data.get('commit') == head and
+                not git(attempt['resource']['worktree'], 'status', '--porcelain', '--untracked-files=all'),
+                'rebased commit must be the clean worktree HEAD')
+        onto = git(record['repo'], 'rev-parse', '--verify', data['onto'] + '^{commit}')
+        require(onto != attempt['base'] and subprocess.run(
+            ['git', '-C', record['repo'], 'merge-base', '--is-ancestor', attempt['base'], onto],
+            capture_output=True, check=False).returncode == 0,
+                'rebase target must descend from the attempt base')
+        require(git(record['repo'], 'merge-base', onto, head) == onto, 'commit is not on the rebase target')
+        require(patch_ids(record['repo'], onto, head) == patch_ids(record['repo'], attempt['base'], report['commit']),
+                'patches differ from the reported commits; return the conflict to the worker')
+        attempt['rebased'] = {'onto': onto, 'commit': head, 'evidence': data['evidence'], 'at': observed_at()}
     elif command == 'verify':
         require(attempt['status'] == 'reported', 'matching report required')
         report = json.loads(Path(attempt['report_path']).read_text())
         require(not report['questions'], 'unresolved worker questions')
         require(data.get('host') == record['host']['session'], 'revalidate host before verification')
-        require(data.get('evidence') and data['commit'] == report['commit'] ==
+        landed = attempt.get('rebased', {}).get('commit', report['commit'])
+        require(data.get('evidence') and data['commit'] == landed ==
                 check_resource(record, attempt['resource']), 'independent verification/commit mismatch')
         proof = test_results(record, task, attempt, report, data)
         profile = attempt.get('profile_proof')

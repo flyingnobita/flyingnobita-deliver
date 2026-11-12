@@ -709,6 +709,38 @@ class RuntimeTests(unittest.TestCase):
             self.assertFalse(record['tasks']['build']['verified'])
             self.call('prompt', payload, ok=False)
 
+    def test_a_stalled_prompt_is_observed_when_the_worker_starts_late(self):
+        for later, expected in (('working', 'observed'), ('idle', 'dispatch-uncertain')):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                repo, run = self.setup_run(root)
+                self.call('task', {**run, 'task': 'build'})
+                worktree = root / 'worker'
+                self.git(repo, 'worktree', 'add', '-q', '-b', 'build', str(worktree), 'main')
+                resource = {'worktree': str(worktree), 'branch': 'build', 'workspace': 'w2',
+                            'pane': 'w2:p1', 'agent': 'build', 'session': 'fixture'}
+                attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
+                fake, prompts = root / 'herdr', root / 'prompts'
+                # Herdr gives up after 5 s; a slow harness starts working only afterwards.
+                fake.write_text('#!/usr/bin/env python3\nimport json,sys,pathlib\n'
+                                f'p=pathlib.Path({str(prompts)!r})\n'
+                                'if sys.argv[1:3] == ["agent", "get"]:\n'
+                                f' status="{later}" if p.exists() else "idle"\n'
+                                ' print(json.dumps({"result":{"agent":{"pane_id":"w2:p1",'
+                                '"workspace_id":"w2","agent_status":status,"completion_seq":7,'
+                                '"agent_session":{"value":"worker"}}}}))\n'
+                                'else:\n'
+                                ' p.write_text(p.read_text()+"x" if p.exists() else "x")\n'
+                                ' print(json.dumps({"error":{"code":"agent_prompt_stalled"}}),file=sys.stderr)\n'
+                                ' sys.exit(1)\n')
+                fake.chmod(0o700)
+                payload = {**run, 'task': 'build', 'attempt': attempt['id'], 'prompt': 'build',
+                           'herdr_bin': str(fake), 'worker_session': 'worker', 'timeout_ms': 1500}
+                self.trust_attempt(payload)
+                actual = self.call('prompt', payload)['tasks']['build']['attempts'][0]
+                self.assertEqual(actual['status'], expected)
+                self.assertEqual(prompts.read_text(), 'x')
+
     def test_native_prompt_refuses_a_blocked_worker_without_writing_input(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -932,6 +964,59 @@ class RuntimeTests(unittest.TestCase):
             report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed')
             self.call('report', {**payload, 'report': report})
             self.call('verify', {**payload, 'commit': report['commit'], 'host': 'fixture', 'evidence': 'links checked'})
+
+    def test_orchestrator_rebase_keeps_the_reported_patches_verifiable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload, report = self.provenance_fixture(root, docs_only=True)
+            report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed')
+            self.call('report', {**payload, 'report': report})
+            repo, worker = root / 'repo', root / 'worker'
+            commit = ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                      '-c', 'commit.gpgsign=false', 'commit', '-qm']
+            (repo / 'other.md').write_text('landed meanwhile\n')
+            self.git(repo, 'add', 'other.md')
+            self.git(repo, *commit, 'other ticket')
+            onto = self.git(repo, 'rev-parse', 'main')
+            self.git(worker, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                     '-c', 'commit.gpgsign=false', 'rebase', '-q', onto)
+            rebased = self.git(worker, 'rev-parse', 'HEAD')
+            verify = {**payload, 'commit': rebased, 'host': 'fixture', 'evidence': 'checked on rebased tip'}
+            self.call('verify', verify, ok=False)
+            claim = {**payload, 'onto': onto, 'commit': rebased, 'evidence': 'git rebase onto main'}
+            self.call('rebased', {**claim, 'onto': report['commit']}, ok=False)
+            self.call('rebased', claim)
+            # A rebase that changes what a patch does is the worker's repair, not a landing step.
+            (worker / 'details.md').write_text('different content\n')
+            self.git(worker, 'add', 'details.md')
+            self.git(worker, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                     '-c', 'commit.gpgsign=false', 'commit', '-q', '--amend', '--no-edit')
+            changed = self.git(worker, 'rev-parse', 'HEAD')
+            self.assertIn('patches differ',
+                          self.call('rebased', {**claim, 'commit': changed}, ok=False))
+            self.git(worker, 'reset', '-q', '--hard', rebased)
+            self.call('verify', {**verify, 'commit': report['commit']}, ok=False)
+            self.call('verify', verify)
+            self.assertTrue(self.call('show', payload)['tasks']['build']['verified'])
+
+    def test_a_failing_rebased_tip_can_go_back_to_the_worker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload, report = self.provenance_fixture(root, docs_only=True)
+            report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed')
+            self.call('report', {**payload, 'report': report})
+            repo, worker = root / 'repo', root / 'worker'
+            (repo / 'other.md').write_text('landed meanwhile\n')
+            self.git(repo, 'add', 'other.md')
+            self.git(repo, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                     '-c', 'commit.gpgsign=false', 'commit', '-qm', 'other ticket')
+            onto = self.git(repo, 'rev-parse', 'main')
+            self.git(worker, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                     '-c', 'commit.gpgsign=false', 'rebase', '-q', onto)
+            rebased = self.git(worker, 'rev-parse', 'HEAD')
+            self.call('rebased', {**payload, 'onto': onto, 'commit': rebased, 'evidence': 'rebase'})
+            record = self.call('followup', {**payload, 'evidence': 'suite fails on the rebased tip'})
+            self.assertEqual(record['tasks']['build']['attempts'][-1]['base'], rebased)
 
     def test_legacy_records_do_not_require_new_fields_but_validate_opted_in_proof(self):
         with tempfile.TemporaryDirectory() as directory:
