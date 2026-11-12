@@ -1,5 +1,6 @@
 # Changes
 
+- Nov-12, 2026 - 05:46 PM +08 - Let `deliver-implement` land a reported Orca ticket after the orchestrator's rebase: the runtime's new `orca-rebased` command records a clean rebase whose patch-ids equal the reported commits, and `orca-verify` accepts the rebased tip in contracts 1 and 2, so a moved target no longer costs an extra worker round. A two-ticket live Orca run landed the second ticket this way; the receipt is in `docs/quick-start-receipts/2026-11-12-orca-landing-rebase.md`.
 - Nov-12, 2026 - 05:43 PM +08 - Give `deliver-implement`'s landing steps explicit Paseo branches: Paseo writes the claim, worker report, rebase receipt with patch-id comparison, verification output and end-of-run note to a private run directory instead of `report`/`rebased`/`verify`/`checkpoint`, and creates no runtime record. Validated live on Paseo with two disposable tickets, max 2 workers, an orchestrator rebase of the second ticket and archived workspaces.
 
 - Nov-12, 2026 - 04:40 PM +08 - Point README readers who already have agreed tickets from `/to-tickets` to `deliver-implement`, which skips grilling and planning and runs `/implement` on each ticket in parallel.

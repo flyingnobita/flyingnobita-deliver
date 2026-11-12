@@ -1018,6 +1018,100 @@ class RuntimeTests(unittest.TestCase):
             record = self.call('followup', {**payload, 'evidence': 'suite fails on the rebased tip'})
             self.assertEqual(record['tasks']['build']['attempts'][-1]['base'], rebased)
 
+    def orca_rebase_fixture(self, root, contract=1):
+        repo, prior = self.setup_run(root)
+        profile = {'harness': 'codex', 'model': 'gpt-6.1-sol', 'effort': 'medium'}
+        record = self.call('create', {'state_root': str(root / 'state'), 'repo': str(repo),
+            'host': {'host': 'orca', 'session': 'runtime', 'pane': 'caller'},
+            'orca_contract': contract, 'profiles': {'implementer': profile},
+            'purpose': 'implement', 'base': 'main', 'branch': 'new'})
+        run = {**prior, 'run_id': record['run_id']}
+        self.call('approve', {**run, 'approved': {'tickets': ['T-1']}, 'evidence': 'fixture tickets'})
+        worktree = root / 'worker'
+        self.git(repo, 'worktree', 'add', '-q', '-b', 'build', str(worktree), 'main')
+        intent = {**run, 'job': 'build', 'request_id': 'req', 'native_run': 'native',
+                  'native_task': 'task', 'role': 'implementer', 'worktree': str(worktree),
+                  'branch': 'build', 'base': record['baseline']}
+        output = None
+        if contract >= 2:
+            artifact = root / 'state' / record['run_id'] / 'build.md'
+            artifact.write_text('worker report\n')
+            output = artifact.with_name('check.txt')
+            output.write_text('independent check passed\n')
+            intent['packet'] = {
+                'target': 'the ticket worktree at its reported commit',
+                'change': 'add details.md', 'constraints': 'local only; no publishing',
+                'ownership': 'report only', 'acceptance': 'details.md holds the reported text',
+                'profile': dict(profile), 'report_path': str(artifact),
+                'verification_commands': [['git', 'diff', '--check']]}
+        self.call('orca-intent', intent)
+        self.call('orca-receipt', {**intent, 'dispatch': 'dispatch', 'evidence': 'native receipt'})
+        (worktree / 'details.md').write_text('reported work\n')
+        self.git(worktree, 'add', 'details.md')
+        self.git(worktree, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                 '-c', 'commit.gpgsign=false', 'commit', '-qm', 'details')
+        report = {**intent, 'dispatch': 'dispatch', 'outcome': 'succeeded',
+                  'commit': self.git(worktree, 'rev-parse', 'HEAD'),
+                  'checks': ['tests green'], 'questions': [], 'evidence': 'matching worker_done'}
+        if contract >= 2:
+            report['artifact_path'] = str(artifact)
+        self.call('orca-report', report)
+        return repo, run, record, worktree, report, output
+
+    def test_orca_orchestrator_rebase_keeps_the_reported_patches_verifiable(self):
+        for contract in (1, 2):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                repo, run, _, worker, report, output = self.orca_rebase_fixture(root, contract)
+                (repo / 'other.md').write_text('landed meanwhile\n')
+                self.git(repo, 'add', 'other.md')
+                self.git(repo, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                         '-c', 'commit.gpgsign=false', 'commit', '-qm', 'other ticket')
+                onto = self.git(repo, 'rev-parse', 'main')
+                self.git(worker, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                         '-c', 'commit.gpgsign=false', 'rebase', '-q', onto)
+                rebased = self.git(worker, 'rev-parse', 'HEAD')
+                verify = {**run, 'job': 'build', 'dispatch': 'dispatch', 'commit': rebased,
+                          'host': 'runtime', 'evidence': 'checked on the rebased tip'}
+                if contract >= 2:
+                    verify['verification'] = {'stage': 'implementer', 'checks': [{
+                        'argv': ['git', 'diff', '--check'], 'exit_code': 0,
+                        'commit': rebased, 'output_path': str(output)}]}
+                self.call('orca-verify', verify, ok=False)
+                claim = {**run, 'job': 'build', 'onto': onto, 'commit': rebased,
+                         'evidence': 'git rebase onto main'}
+                self.call('orca-rebased', {**claim, 'onto': report['commit']}, ok=False)
+                self.call('orca-rebased', claim)
+                # A rebase that changes what a patch does is the worker's repair, not a landing step.
+                (worker / 'details.md').write_text('different content\n')
+                self.git(worker, 'add', 'details.md')
+                self.git(worker, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                         '-c', 'commit.gpgsign=false', 'commit', '-q', '--amend', '--no-edit')
+                changed = self.git(worker, 'rev-parse', 'HEAD')
+                self.assertIn('patches differ',
+                              self.call('orca-rebased', {**claim, 'commit': changed}, ok=False))
+                self.git(worker, 'reset', '-q', '--hard', rebased)
+                self.call('orca-verify', {**verify, 'commit': report['commit']}, ok=False)
+                self.call('orca-verify', verify)
+                self.assertTrue(self.call('show', run)['orca_jobs']['build']['verified'])
+
+    def test_orca_rebase_refuses_a_conflicted_tip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run, _, worker, report, _ = self.orca_rebase_fixture(root)
+            (repo / 'details.md').write_text('landed meanwhile\n')
+            self.git(repo, 'add', 'details.md')
+            self.git(repo, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                     '-c', 'commit.gpgsign=false', 'commit', '-qm', 'other ticket')
+            onto = self.git(repo, 'rev-parse', 'main')
+            conflict = subprocess.run(['git', '-C', str(worker), 'rebase', onto],
+                                      text=True, capture_output=True, check=False)
+            self.assertNotEqual(conflict.returncode, 0)
+            self.call('orca-rebased', {**run, 'job': 'build', 'onto': onto,
+                                       'commit': report['commit'], 'evidence': 'rebase'}, ok=False)
+            self.git(worker, 'rebase', '--abort')
+            self.assertNotIn('rebased', self.call('show', run)['orca_jobs']['build'])
+
     def test_legacy_records_do_not_require_new_fields_but_validate_opted_in_proof(self):
         with tempfile.TemporaryDirectory() as directory:
             payload, report = self.provenance_fixture(Path(directory), bind_profile=False)

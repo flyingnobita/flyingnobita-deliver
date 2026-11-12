@@ -474,13 +474,32 @@ def orca_evidence(command, data, record, directory):
         job['rejection'] = {k: data[k] for k in ('request_state', 'task_state', 'dispatch_absent', 'evidence')}
         if direct:
             job['rejection']['preflight_rejection'] = refusal
+    elif command == 'orca-rebased':
+        # The orchestrator's landing rebase onto a moved target; only identical patches qualify.
+        report = job.get('report', {})
+        require(report.get('outcome') == 'succeeded' and not job.get('verified')
+                and data.get('evidence'), 'rebase claim requires an unverified successful report and evidence')
+        head = orca_head(record, job)
+        require(data.get('commit') == head and
+                not git(job['worktree'], 'status', '--porcelain', '--untracked-files=all'),
+                'rebased commit must be the clean worktree HEAD')
+        onto = git(record['repo'], 'rev-parse', '--verify', data['onto'] + '^{commit}')
+        require(onto != job['base'] and subprocess.run(
+            ['git', '-C', record['repo'], 'merge-base', '--is-ancestor', job['base'], onto],
+            capture_output=True, check=False).returncode == 0,
+                'rebase target must descend from the job base')
+        require(git(record['repo'], 'merge-base', onto, head) == onto, 'commit is not on the rebase target')
+        require(patch_ids(record['repo'], onto, head) == patch_ids(record['repo'], job['base'], report['commit']),
+                'patches differ from the reported commits; return the conflict to the worker')
+        job['rebased'] = {'onto': onto, 'commit': head, 'evidence': data['evidence'], 'at': observed_at()}
     elif command == 'orca-verify':
         report = job.get('report', {})
         require(report.get('outcome') == 'succeeded' and not report.get('questions'),
                 'successful report without pending questions required')
         require(data.get('dispatch') == job['dispatch'] and data.get('host') == record['host']['session'],
                 'dispatch/host mismatch')
-        require(data.get('evidence') and data['commit'] == report['commit'] == orca_head(record, job),
+        landed = job.get('rebased', {}).get('commit', report['commit'])
+        require(data.get('evidence') and data['commit'] == landed == orca_head(record, job),
                 'independent verification/commit mismatch')
         require(not git(job['worktree'], 'status', '--porcelain', '--untracked-files=all'),
                 'uncommitted work; verify committed result')
