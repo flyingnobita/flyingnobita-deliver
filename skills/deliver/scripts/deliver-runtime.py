@@ -52,6 +52,7 @@ PURPOSES = {
     'setup': (('setup',), ('smoke',)),
     'review-only': (('review',), ('reviewer',)),
     'review-repair': (('review', 'seams'), ('reviewer', 'implementer')),
+    'implement': (('tickets',), ('implementer',)),
 }
 
 

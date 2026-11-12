@@ -5,11 +5,15 @@ The delivery suite coordinates a change from an agreed brief through implementat
 ## Language
 
 **Delivery suite**:
-The four companion skills: Deliver, Setup, Review, and Retro.
-_Avoid_: Deliver skill when referring to all four
+The five companion skills: Deliver, Implement, Setup, Review, and Retro.
+_Avoid_: Deliver skill when referring to all five
 
 **Deliver**:
 The skill that coordinates an end-to-end delivery run.
+
+**Implement**:
+The companion skill that builds agreed tickets in parallel implementer workers and merges them into the default branch, without Deliver's grilling, planning and review stops.
+_Avoid_: implement (alone), which names the unrelated `mattpocock-implement` skill
 
 **Setup**:
 The companion skill for delivery prerequisites, configuration, and host validation.
