@@ -141,13 +141,13 @@ Each role except the orchestrator gets its own profile. For example:
 
 ## Skills
 
-| Skill                                                    | What it does                                                                   | How to run it                                      |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------- |
-| [`deliver`](skills/deliver/SKILL.md)                     | Runs a full delivery                                                           | `deliver <input>` (issue URL, `#N`, spec or brief) |
-| [`deliver-implement`](skills/deliver-implement/SKILL.md) | Implements agreed tickets in parallel workers and merges each into your branch | `deliver-implement 1,2,3`                          |
-| [`deliver-setup`](skills/deliver-setup/SKILL.md)         | Checks prerequisites, configures role profiles, validates hosts                | `/deliver-setup`                                   |
-| [`deliver-review`](skills/deliver-review/SKILL.md)       | Reviews and repairs an existing branch against standards and spec              | `/deliver-review`                                  |
-| [`deliver-retro`](skills/deliver-retro/SKILL.md)         | Looks back over past runs and proposes fixes to the skills and profiles        | `/deliver-retro`                                   |
+| Skill                                                    | What it does                                                                | How to run it                                      |
+| -------------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------- |
+| [`deliver`](skills/deliver/SKILL.md)                     | Runs a full delivery                                                        | `deliver <input>` (issue URL, `#N`, spec or brief) |
+| [`deliver-implement`](skills/deliver-implement/SKILL.md) | Implements agreed tickets in parallel workers and lands each on your branch | `deliver-implement 1,2,3`                          |
+| [`deliver-setup`](skills/deliver-setup/SKILL.md)         | Checks prerequisites, configures role profiles, validates hosts             | `/deliver-setup`                                   |
+| [`deliver-review`](skills/deliver-review/SKILL.md)       | Reviews and repairs an existing branch against standards and spec           | `/deliver-review`                                  |
+| [`deliver-retro`](skills/deliver-retro/SKILL.md)         | Looks back over past runs and proposes fixes to the skills and profiles     | `/deliver-retro`                                   |
 
 The `flyingnobita-` prefix is a fleet convention, not part of these names. Fleet installs still see `flyingnobita-deliver`, `flyingnobita-deliver-setup` and so on, and the suite resolves both forms.
 

@@ -12,7 +12,7 @@ _Avoid_: Deliver skill when referring to all five
 The skill that coordinates an end-to-end delivery run.
 
 **Implement**:
-The companion skill that builds agreed tickets in parallel implementer workers and merges them into the default branch, without Deliver's grilling, planning and review stops.
+The companion skill that builds agreed tickets in parallel implementer workers and lands them on the user's branch as linear history, without Deliver's grilling, planning and review stops.
 _Avoid_: implement (alone), which names the unrelated `mattpocock-implement` skill
 
 **Setup**:

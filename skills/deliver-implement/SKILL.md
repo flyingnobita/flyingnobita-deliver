@@ -1,6 +1,6 @@
 ---
 name: deliver-implement
-description: Implement agreed tickets in parallel implementer workers on Orca, Herdr or Paseo, one worktree per ticket, then merge each into the target branch and clean up. Use when the user asks to implement tickets or issues (`implement 1,2,3`, `DLV-26`) or names `deliver-implement` (or `flyingnobita-deliver-implement`).
+description: Implement agreed tickets in parallel implementer workers on Orca, Herdr or Paseo, one worktree per ticket, then land each on the target branch as linear history and clean up. Use when the user asks to implement tickets or issues (`implement 1,2,3`, `DLV-26`) or names `deliver-implement` (or `flyingnobita-deliver-implement`).
 ---
 
 # Implement tickets
@@ -8,8 +8,8 @@ description: Implement agreed tickets in parallel implementer workers on Orca, H
 You are the **orchestrator**. The tickets are the agreed spec: there is no
 brief, grilling, plan, reviewer role or QA. Each ticket gets its own worktree,
 branch and implementer worker running `implement` (or `mattpocock-implement`);
-you verify each result yourself and land it on the target branch, one ticket at
-a time.
+you verify each result yourself and fast-forward the target branch to it, one
+ticket at a time.
 
 Run to completion without asking, except where a step below names a stop. When
 a ticket **blocks**, notify the user at once and keep landing independent
@@ -82,23 +82,27 @@ Refill the frontier each time a ticket lands.
 
 ## 3. Land each finished ticket
 
-Land one ticket at a time:
+Land one ticket at a time, keeping the target's history **linear**: no merge
+commits, so a later publish accepts the range.
 
-1. In a temporary detached worktree at the target's tip, run
-   `git merge --no-ff <branch> -m "merge <branch>"`.
-2. Run the full suite and linters there yourself. A failure or merge conflict
-   goes back to the ticket's worker once, with the receipt; for a conflict it
-   merges the new target tip into its branch, resolves it and re-runs its
+1. In the ticket's worktree, with its worker finished and the tree clean, run
+   `git rebase <target-sha>`. On a conflict run `git rebase --abort`.
+2. Confirm `git rev-list --merges <target-sha>..<branch>` is empty, then run the
+   full suite and linters there yourself. A conflict, a merge commit or a
+   failure goes back to the ticket's worker once, with the receipt: it rebases
+   its branch onto the new target tip, resolves any conflict and re-runs its
    tests. Repeat steps 1-2 on its next report. A second failure **blocks** the
    ticket.
-3. Advance the target to the merge commit. When it is checked out, run
-   `git merge --ff-only <merge-sha>` in that checkout; git refuses rather than
-   overwrite local changes, and that refusal blocks the ticket. Otherwise run
-   `git update-ref refs/heads/<target> <merge-sha> <old-sha>`.
+3. Fast-forward the target to the rebased branch tip. When the target is
+   checked out, run `git merge --ff-only <branch>` in that checkout; git
+   refuses rather than overwrite local changes, and that refusal blocks the
+   ticket. Otherwise run
+   `git update-ref refs/heads/<target> <branch-sha> <target-sha>`.
 4. Set the repo's done or review `status:` label. Leave the issue open: its
    `Fixes #N` footer closes it when the user publishes.
 5. Clean up through the adapter: close the worker and its window, remove the
-   worktree and the temporary worktree, then `git branch -d <branch>`.
+   worktree, then `git branch -d <branch>`, which succeeds because the target
+   now contains the branch.
 
 When a ticket **blocks**, notify the user through the adapter's notify
 operation with the ticket, the failed command and receipt, and its worktree and
@@ -111,8 +115,8 @@ Done when every ticket has landed, is blocked, or is abandoned.
 
 ## 4. Report
 
-Report: the target branch and its final SHA; each ticket as landed (merge
-commit), blocked (reason, kept worktree and window) or abandoned; the requested
+Report: the target branch and its final SHA; each ticket as landed (its
+commit range), blocked (reason, kept worktree and window) or abandoned; the requested
 and effective implementer profile; the verification commands you ran; and the
 issues that close on publish. Nothing is pushed: publishing is a separate
 request. Suggest `deliver-review` (or `flyingnobita-deliver-review`) on the
