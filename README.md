@@ -17,7 +17,7 @@ Here is where each step you run today goes:
 | `/implement` (loads `tdd`, then `code-review`) | The **implementer** loads `tdd`, then the **reviewer** loads `code-review`                                                                                                               |
 | `pr`                                           | The **orchestrator** runs `pr` when the run ships as a pull request                                                                                                                      |
 
-You can still hand `deliver` a spec or tickets you wrote with `/to-spec` or `/to-tickets`.
+You can still hand `deliver` a spec or tickets you wrote with `/to-spec` or `/to-tickets`. For tickets you have already agreed on, [`deliver-implement`](skills/deliver-implement/SKILL.md) skips grilling and planning: it runs `/implement` on each ticket in its own worktree, in parallel, and lands each one on your branch.
 
 On top of those skills, `deliver` adds:
 
