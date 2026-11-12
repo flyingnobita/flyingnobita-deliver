@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-12, 2026 - 12:47 AM +08 - Require a second-rewrite variant in every stateful seam group's test: a second pass with an adjacent state that asserts what the first left and the order or retention limit the seam has, and reject a single-write behavioural group at the red check.
+
 - Nov-11, 2026 - 11:21 PM +08 - Validate the Paseo Quick start against `a5cfdff` with a disposable repository and a first-time setup and delivery: tell the user to approve the session's Paseo workspace and agent creation, name the setup skill for Codex instead of a slash command, and stop setup from opening hidden background workspaces.
 
 - Nov-11, 2026 - 10:44 PM +08 - Accept Orca's `run-current` response without runtime metadata in the caller preflight, so a Codex caller on Orca 1.4.256 is confirmed instead of reported broken.
