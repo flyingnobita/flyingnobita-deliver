@@ -21,11 +21,11 @@ You can still hand `deliver` a spec or tickets you wrote with `/to-spec` or `/to
 
 On top of those skills, `deliver` adds:
 
-- Its own harness, model and effort for each role. For example, review with a different vendor's model from the one that wrote the code.
+- **A model per role.** Each role gets its own harness, model and effort. For example, review with a different vendor's model from the one that wrote the code.
 - **Lower costs.** Give the **implementer** a cheaper model and keep the expensive ones for the **planner** and the **orchestrator**. The implementer runs longest: it writes the code, runs the tests and fixes what fails. The orchestrator reruns the tests itself, so it catches a weaker model's mistakes before they ship.
-- Parallel builds. Independent parts of a change become tickets, each with its own worktree and implementer, up to `max_workers` at once.
-- A host to run them on. Each agent is a visible session in [Herdr](https://herdr.dev), [Paseo](https://paseo.sh) or [Orca](https://www.onorca.dev).
-- Checks between handoffs. The orchestrator reruns the tests and linters itself before it accepts an agent's report.
+- **Parallel builds.** Independent parts of a change become tickets, each with its own worktree and implementer, up to `max_workers` at once.
+- **Your choice of host.** Each agent is a visible session in [Herdr](https://herdr.dev), [Paseo](https://paseo.sh) or [Orca](https://www.onorca.dev).
+- **Checks between handoffs.** The orchestrator reruns the tests and linters itself before it accepts an agent's report.
 
 Your installed skills stay as they are. [dependencies.md](skills/deliver/references/dependencies.md) lists what each role loads.
 
