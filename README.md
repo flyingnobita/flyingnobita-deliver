@@ -8,15 +8,16 @@ Runs [Matt Pocock's skills](https://github.com/mattpocock/skills) (`grilling`, `
 
 Then you no longer need a separate prompt for each step: grilling, writing the spec, implementing, reviewing and writing the PR. Run `deliver` once and it does every step, handing each one to a role on the harness and model you chose. You still answer the grilling questions yourself.
 
-Each step uses the same skill you use today:
+Here is where each step you run today goes:
 
-| Step                      | Skill                         | Run by                      |
-| ------------------------- | ----------------------------- | --------------------------- |
-| Settle the brief with you | `grilling`, `domain-modeling` | Orchestrator (your session) |
-| Plan the slices           | `diagnosing-bugs` (for bugs)  | Planner                     |
-| Build test-first          | `tdd`                         | Implementer                 |
-| Review standards and spec | `code-review`                 | Reviewer                    |
-| Write the PR body         | `pr`                          | Orchestrator                |
+| You run today                                  | In `deliver`                                                                                                                                                                         |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/grill-me` (loads `grilling`)                 | The orchestrator, your own session, loads `grilling` and `domain-modeling`                                                                                                           |
+| `/to-spec`, `/to-tickets`                      | The planner writes the plan and splits it into tickets itself. It loads `diagnosing-bugs` for a bug with an unknown cause, and may load `research`, `codebase-design` or `prototype` |
+| `/implement` (loads `tdd`, then `code-review`) | The implementer loads `tdd`, then the reviewer loads `code-review`                                                                                                                   |
+| `pr`                                           | The orchestrator loads `pr` when the run ships as a pull request                                                                                                                     |
+
+You can still hand `deliver` a spec or tickets you wrote with `/to-spec` or `/to-tickets`.
 
 On top of those skills, `deliver` adds:
 
