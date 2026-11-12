@@ -26,7 +26,10 @@ the entire plan again. Answer plan-settled ownership questions in the packet.
 For native `report`/`verify` implementer tasks, include the structured
 [test evidence contract](test-evidence.md) in the brief. Record exact test
 snapshots and independent before/after receipts; classify guards, bootstrap
-checks and no-test changes explicitly.
+checks and no-test changes explicitly. Every native report in a new run also
+carries `observed_profile` in the canonical keys from
+[profile proof](profile-proof.md); a missing, differently named or mismatched
+effective profile is refused.
 
 Verify each gate yourself in the work's workspace. A role's report tells you where to look; your own run is the evidence.
 

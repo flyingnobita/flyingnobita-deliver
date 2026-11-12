@@ -11,6 +11,8 @@ from pathlib import Path
 
 SCRIPT = (Path(__file__).resolve().parents[1] / 'skills/deliver/scripts'
           / 'deliver-runtime.py')
+FIXTURE_PROFILE = {'harness': 'pi', 'model': 'deepseek/deepseek-flash',
+                   'effort': 'high', 'mode': 'default'}
 
 
 class RuntimeTests(unittest.TestCase):
@@ -482,8 +484,7 @@ class RuntimeTests(unittest.TestCase):
         return repo, {'state_root': str(root / 'state'), 'run_id': run['run_id']}
 
     def bind_fixture_profile(self, payload, profile=None, session='fixture-worker'):
-        profile = profile or {'harness': 'pi', 'model': 'deepseek/deepseek-flash',
-                              'effort': 'high', 'mode': 'default'}
+        profile = profile or FIXTURE_PROFILE
         return self.call('profile-bind', {**payload, 'requested_profile': profile,
                          'observed_profile': profile, 'worker_session': session,
                          'profile_authorization': 'Explicit synthetic fixture selection',
@@ -621,7 +622,8 @@ class RuntimeTests(unittest.TestCase):
             report = {'run_id': run['run_id'], 'task': 'build', 'attempt': attempt['id'],
                       'commit': self.git(worktree, 'rev-parse', 'HEAD'),
                       'checks': [{'command': 'fixture', 'result': 'passed'}], 'questions': [],
-                      'test_scope': 'none', 'test_evidence': [], 'test_reason': 'No source or test changes'}
+                      'test_scope': 'none', 'test_evidence': [], 'test_reason': 'No source or test changes',
+                      'observed_profile': FIXTURE_PROFILE}
             self.call('report', {**payload, 'report': {**report, 'attempt': 'stale'}}, ok=False)
             self.call('report', {**payload, 'report': report})
             self.assertFalse(self.call('show', run)['tasks']['build']['verified'])
@@ -763,7 +765,8 @@ class RuntimeTests(unittest.TestCase):
                  'test_commit': test_commit, 'tests': tests, 'reason': 'Approved public CLI seam'}
         report = {'run_id': run['run_id'], 'task': 'build', 'attempt': attempt['id'],
                   'commit': self.git(worker, 'rev-parse', 'HEAD'), 'checks': ['green'], 'questions': [],
-                  'test_scope': 'changed', 'test_evidence': [group]}
+                  'test_scope': 'changed', 'test_evidence': [group],
+                  'observed_profile': FIXTURE_PROFILE}
         return payload, report
 
     def test_profile_proof_is_required_and_must_match_the_authorized_request(self):
@@ -787,6 +790,39 @@ class RuntimeTests(unittest.TestCase):
             self.assertLessEqual(attempt['created_at'], attempt['dispatched_at'])
             self.assertLessEqual(attempt['dispatched_at'], attempt['reported_at'])
             self.assertLessEqual(attempt['reported_at'], attempt['verified_at'])
+
+    def test_report_effective_profile_must_use_the_requested_canonical_vocabulary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory), docs_only=True)
+            report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed')
+            without = {k: v for k, v in report.items() if k != 'observed_profile'}
+            self.assertIn('observed_profile', self.call('report', {**payload, 'report': without}, ok=False))
+            for wrong in ({**FIXTURE_PROFILE, 'effort': 'not exposed'},
+                          {**FIXTURE_PROFILE, 'mode': 'auto'},
+                          {**FIXTURE_PROFILE, 'model': 'gpt-6.1-sol'},
+                          {k: v for k, v in FIXTURE_PROFILE.items() if k != 'mode'},
+                          {**FIXTURE_PROFILE, 'collaboration_mode': 'default'}):
+                self.call('report', {**payload, 'report': {**report, 'observed_profile': wrong}}, ok=False)
+            renamed = {k: v for k, v in without.items() if k not in ('model', 'effort', 'mode')}
+            renamed.update(model_name=FIXTURE_PROFILE['model'], reasoning_effort='high',
+                           collaboration_mode='default')
+            self.assertIn('observed_profile', self.call('report', {**payload, 'report': renamed}, ok=False))
+            self.assertEqual(self.call('show', payload)['tasks']['build']['attempts'][0]['status'],
+                             'dispatch-uncertain')
+            self.call('report', {**payload, 'report': report})
+
+    def test_verification_refuses_a_report_profile_that_differs_from_the_authorized_request(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory), docs_only=True, bind_profile=False)
+            report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed')
+            self.call('report', {**payload, 'report': report})
+            changed = {**FIXTURE_PROFILE, 'effort': 'low'}
+            self.call('profile-bind', {**payload, 'requested_profile': changed, 'observed_profile': changed,
+                       'profile_authorization': 'User selected low effort', 'worker_session': 'worker',
+                       'evidence': 'startup', 'availability_verified': True})
+            verify = {**payload, 'commit': report['commit'], 'host': 'fixture', 'evidence': 'checked'}
+            self.assertIn('report effective profile differs', self.call('verify', verify, ok=False))
+            self.assertFalse(self.call('show', payload)['tasks']['build']['verified'])
 
     def test_quota_switch_creates_a_new_profile_history_entry_with_authority(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -955,7 +991,8 @@ class RuntimeTests(unittest.TestCase):
             self.call('cleanup-check', {**payload, 'observation': resource, 'landed': 'main'}, ok=False)
             report = {'run_id': run['run_id'], 'task': 'build', 'attempt': attempt['id'],
                       'commit': attempt['base'], 'checks': ['passed'], 'questions': [],
-                      'test_scope': 'none', 'test_evidence': [], 'test_reason': 'No source or test changes'}
+                      'test_scope': 'none', 'test_evidence': [], 'test_reason': 'No source or test changes',
+                      'observed_profile': FIXTURE_PROFILE}
             self.call('report', {**payload, 'report': report})
             self.call('verify', {**payload, 'commit': report['commit'], 'host': 'fixture', 'evidence': 'checked'})
             self.call('cleanup-check', {**payload, 'observation': {**resource, 'pane': 'another'}, 'landed': 'main'}, ok=False)
@@ -1092,7 +1129,8 @@ class RuntimeTests(unittest.TestCase):
             self.bind_fixture_profile(payload)
             report = {'run_id': run['run_id'], 'task': 'build', 'attempt': attempt['id'],
                       'commit': attempt['base'], 'checks': ['read plan'], 'questions': ['Which name?'],
-                      'test_scope': 'none', 'test_evidence': [], 'test_reason': 'No source or test changes'}
+                      'test_scope': 'none', 'test_evidence': [], 'test_reason': 'No source or test changes',
+                      'observed_profile': FIXTURE_PROFILE}
             self.call('report', {**payload, 'report': report})
             self.call('verify', {**payload, 'commit': attempt['base'], 'host': 'fixture', 'evidence': 'checked'}, ok=False)
             self.call('followup', {**payload, 'evidence': 'answer from approved plan: name is greeting'})
@@ -1176,7 +1214,8 @@ class RuntimeTests(unittest.TestCase):
             self.call('report', {**payload, 'report': {
                 'run_id': run['run_id'], 'task': 'build', 'attempt': attempt['id'], 'commit': head,
                 'checks': ['fixture'], 'questions': ['blocked'], 'test_scope': 'none',
-                'test_evidence': [], 'test_reason': 'No source or test changes'}})
+                'test_evidence': [], 'test_reason': 'No source or test changes',
+                'observed_profile': FIXTURE_PROFILE}})
             self.call('handoff', handoff, ok=False)
 
     def test_abandon_needs_a_user_decision_and_releases_the_worktree(self):
