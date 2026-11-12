@@ -1276,12 +1276,17 @@ class RuntimeTests(unittest.TestCase):
             self.call('attempt', {**run, 'task': 'other', 'resource': stale}, ok=False)
             self.call('attempt', {**run, 'task': 'other', 'resource': {**stale, 'session': 'restarted'}})
 
-    def fake_wait_herdr(self, root, status, pane_text='', read_error='', garbage=False):
+    def fake_wait_herdr(self, root, status, pane_text='', read_error='', garbage=False,
+                        statuses=None, log=None):
         fake = root / 'herdr'
+        sequence = list(statuses) if statuses else [status]
         fake.write_text('#!/usr/bin/env python3\nimport json,sys\n'
                         f'pane = {pane_text!r}\n'
                         f'read_error = {read_error!r}\n'
                         f'garbage = {garbage!r}\n'
+                        f'sequence = {sequence!r}\n'
+                        f'counter = {str(root / "herdr-calls")!r}\n'
+                        f'log = {log!r}\n'
                         'if sys.argv[1:3] == ["agent", "read"]:\n'
                         '    sys.stderr.write(read_error)\n'
                         '    if read_error:\n'
@@ -1294,8 +1299,15 @@ class RuntimeTests(unittest.TestCase):
                         '        body = pane.rstrip().splitlines()\n'
                         '        print("\\n".join(body[-limit:]) if limit else pane, end="")\n'
                         'else:\n'
+                        '    try:\n'
+                        '        seen = int(open(counter).read())\n'
+                        '    except Exception:\n'
+                        '        seen = 0\n'
+                        '    open(counter, "w").write(str(seen + 1))\n'
+                        '    if log:\n'
+                        '        open(log, "a").write("agent get\\n")\n'
                         '    agent = {"pane_id":"w2:p1","workspace_id":"w2",'
-                        '"agent_status":' + repr(status) + ',"completion_seq":3}\n'
+                        '"agent_status":sequence[seen % len(sequence)],"completion_seq":3}\n'
                         '    print(json.dumps({"result":{"agent":agent}}))\n')
         fake.chmod(0o700)
         return str(fake)
@@ -1306,8 +1318,9 @@ class RuntimeTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         root = Path(directory.name)
         _, run, worktree, _, attempt = self.worker_fixture(root)
-        fake = self.fake_wait_herdr(root, status, pane_text,
-                                    options.pop('read_error', ''), options.pop('garbage', False))
+        fake = self.fake_wait_herdr(root, status, pane_text, options.pop('read_error', ''),
+                                    options.pop('garbage', False), options.pop('statuses', None),
+                                    options.pop('log', None))
         payload = {**run, 'task': 'build', 'attempt': attempt['id'], 'timeout_s': 1,
                    'poll_s': 0.1, 'herdr_bin': fake, **options}
         return root, run, worktree, attempt, payload
@@ -1339,6 +1352,21 @@ class RuntimeTests(unittest.TestCase):
         result = self.call('wait', payload)
         self.assertEqual(result['state'], 'reported')
         self.assertEqual(self.call('show', run)['tasks']['build']['attempts'][0]['status'], 'ready')
+
+    def test_wait_does_not_settle_on_a_single_idle_sample(self):
+        # A pane flaps to idle between model turns: one idle sample is not a settlement.
+        _, _, _, _, payload = self.wait_fixture(statuses=['idle', 'working'])
+        result = self.call('wait', {**payload, 'timeout_s': 1, 'poll_s': 0.1})
+        self.assertEqual(result['state'], 'timeout')
+
+    def test_wait_settles_only_after_two_consecutive_idle_samples(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        log = Path(directory.name) / 'wait-calls.log'
+        _, _, _, _, payload = self.wait_fixture(status='idle', log=str(log))
+        result = self.call('wait', {**payload, 'timeout_s': 5, 'poll_s': 0.1})
+        self.assertEqual(result['state'], 'settled-no-report')
+        self.assertEqual(log.read_text().count('agent get'), 2)
 
     def test_wait_budget_refuses_a_third_call(self):
         _, run, _, _, payload = self.wait_fixture()

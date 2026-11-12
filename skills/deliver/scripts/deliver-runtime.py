@@ -1028,6 +1028,9 @@ def wait(data):
     # Reserve the one-shot pane read inside the same deadline, never after it.
     read_budget = min(10.0, timeout / 2) if lines else 0.0
     deadline = time.monotonic() + timeout - read_budget
+    # An idle sample is not a settlement: a worker flaps to idle between model
+    # turns, so silence needs two consecutive idle samples to count as quiet.
+    quiet = 0
     while True:
         status, busy = 'unknown', []
         if Path(attempt['report_path']).exists():
@@ -1042,7 +1045,15 @@ def wait(data):
             busy = busy_processes(worktree, pattern) if status in ('idle', 'done') else []
             state = {'blocked': 'blocked', 'exited': 'exited'}.get(status)
             if status in ('idle', 'done'):
-                state = 'background-running' if busy else 'settled-no-report'
+                if busy:
+                    quiet = 0
+                    state = 'background-running'
+                else:
+                    quiet += 1
+                    state = 'settled-no-report' if quiet >= 2 else None
+            else:
+                # Any working, blocked, exited or unknown sample restarts the count.
+                quiet = 0
         if state not in (None, 'background-running') or time.monotonic() >= deadline:
             receipt = {'state': state or 'timeout', 'agent_status': status, 'busy': busy,
                        'report_path': attempt['report_path']}
