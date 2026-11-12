@@ -144,6 +144,7 @@ class RuntimeTests(unittest.TestCase):
                 ('review-only', {'review': 'review target against fixed point'}, ['reviewer']),
                 ('review-repair', {'review': 'repair standards/spec findings', 'seams': ['CLI']},
                  ['reviewer', 'implementer']),
+                ('implement', {'tickets': ['DLV-26 (#26)']}, ['implementer']),
             ):
                 for role in ('smoke', 'planner', 'implementer', 'reviewer', 'qa'):
                     record = self.call('create', {'state_root': str(root / 'state'), 'repo': str(repo),
