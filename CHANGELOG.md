@@ -1,6 +1,7 @@
 # Changes
 
 - Nov-12, 2026 - 12:47 AM +08 - Require a second-rewrite variant in every stateful seam group's test: a second pass with an adjacent state that asserts what the first left and the order or retention limit the seam has, and reject a single-write behavioural group at the red check.
+- Nov-12, 2026 - 12:51 AM +08 - Ask at the grilling stop whether the user wants the change activated locally before it ships, record the activation and restore steps in the brief and the approved plan before the ship stage, run them with a gate and a stop for the user's try-out, and treat activation work that starts during ship as a scope change (DLV-20).
 
 - Nov-11, 2026 - 11:21 PM +08 - Validate the Paseo Quick start against `a5cfdff` with a disposable repository and a first-time setup and delivery: tell the user to approve the session's Paseo workspace and agent creation, name the setup skill for Codex instead of a slash command, and stop setup from opening hidden background workspaces.
 

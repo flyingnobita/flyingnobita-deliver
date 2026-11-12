@@ -63,6 +63,23 @@ this delivery's immutable base SHA and approved brief/plan. Keep Mention
 findings for the PR. Gate: no must-fix findings remain, the reviewer examined
 the final result, and your green run follows the last commit.
 
+### Local preview
+
+Run this section only when the approved plan names a preview step. You run it,
+not a role: roles work in the worktree, while the preview changes the user's own
+installation, which no role brief owns.
+
+1. Record the state the preview replaces, by path or command, before touching it.
+2. Run the plan's activation command and capture its exit code and the state after it.
+3. When the plan waits for the user, end your turn with the activation receipt and
+   what to try: that turn end is the preview stop. Never leave the preview active
+   past the user's report.
+4. Restore the recorded state, and capture the state after the restore.
+
+Gate: the state after the restore matches what the plan said it would, the
+records name the exact commands and paths, and the ship stage starts only after
+the restore.
+
 ### QA
 
 Run when the user did not skip it. Read [qa.md](qa.md).
@@ -82,6 +99,6 @@ not merely a native worker completion.
 2. The **frontier** is every ticket whose blockers are merged into the integration branch. Start one implementer role per frontier ticket, at most the brief's limit at once (default 3), each with the build brief above scoped to its ticket.
 3. When a ticket's build gates pass, merge its branch into the integration branch and run the full suite there. A failure goes back to that ticket's implementer before the next merge.
 4. Refill the frontier as tickets land.
-5. After the last ticket: one review of the whole integration branch against the spec, with all must-fix findings fixed by a single implementer role, then QA on the integration branch.
+5. After the last ticket: one review of the whole integration branch against the spec, with all must-fix findings fixed by a single implementer role, then the plan's preview step when it names one, then QA on the integration branch.
 
-Gate: every ticket landed, the integration branch is green, the review has no must-fix finding, and QA passed or was skipped.
+Gate: every ticket landed, the integration branch is green, the review has no must-fix finding, the preview's activation and restore receipts are recorded when the plan named one, and QA passed or was skipped.

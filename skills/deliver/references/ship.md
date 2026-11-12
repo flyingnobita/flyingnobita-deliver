@@ -4,6 +4,8 @@ Read [configuration.md](configuration.md) for the run's landing choice.
 A partial run returns through scope approval before shipping. Preserve existing
 repository requirements for publishing skills and authorization; a profile or
 legacy config value grants neither publication nor deployment permission.
+A local preview is finished before this stage; activation work that starts here
+is a scope change, not a shipping step.
 
 For `leave`, finish local commits and verification, report the branch and
 retained workspace, then stop. For `pr`, follow the applicable PR approval path
