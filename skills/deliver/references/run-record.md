@@ -15,9 +15,10 @@ Use `approve` with `run_id`, `approved` and actual user-request/approval
 | `setup` | `setup`: selected profiles and no-edit smoke-test scope | smoke only |
 | `review-only` | `review`: target SHA, fixed point, spec and read-only request | reviewer only |
 | `review-repair` | `review`: target SHA, fixed point, spec and allowed repairs; `seams`: confirmed repair test interfaces | reviewer and implementer |
+| `implement` | `tickets`: the requested ticket references | implementer only |
 
 These fields hold the concrete scope or artifact pointers, not fabricated
-booleans. Record setup/review authorization from the user's request and settled
+booleans. Record setup, review and implement authorization from the user's request and settled
 choices. They do not require approval of the original delivery, and cannot be
 used to dispatch a full delivery or ship. A change from review-only to repair
 needs a new purpose-specific run and the user's repair request.

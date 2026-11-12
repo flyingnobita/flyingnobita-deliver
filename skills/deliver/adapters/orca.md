@@ -21,7 +21,8 @@ packets, durable artifacts and separate independent gates.
 Read [configuration.md](../references/configuration.md). Resolve the needed
 roles from [orca-profiles.toml](../references/orca-profiles.toml), then project
 and run `hosts.orca.roles` tables: four roles for delivery, reviewer for
-review-only, reviewer/implementer for review-repair, and the selected profiles
+review-only, reviewer/implementer for review-repair,
+implementer for implement, and the selected profiles
 for setup. A project or run table replaces that role's default whole, so a
 changed harness never inherits another harness's model. If a default is
 unavailable, use `deliver-setup` (or `flyingnobita-deliver-setup`) to choose

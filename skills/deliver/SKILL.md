@@ -44,7 +44,8 @@ This skill builds on other skills and their file formats. When one is missing, o
 
 For configuration or legacy migration use `deliver-setup` (or
 `flyingnobita-deliver-setup`); for a standalone branch review use `deliver-review`
-(or `flyingnobita-deliver-review`). Questions about the
+(or `flyingnobita-deliver-review`); for agreed tickets without grilling or
+planning use `deliver-implement` (or `flyingnobita-deliver-implement`). Questions about the
 workflow use [references/workflow.md](references/workflow.md). Inspecting or
 editing this skill does not start a delivery.
 
