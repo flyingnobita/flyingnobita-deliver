@@ -13,6 +13,8 @@ SCRIPT = (Path(__file__).resolve().parents[1] / 'skills/deliver/scripts'
           / 'deliver-runtime.py')
 FIXTURE_PROFILE = {'harness': 'pi', 'model': 'deepseek/deepseek-flash',
                    'effort': 'high', 'mode': 'default'}
+FIXTURE_PROFILES = {role: {'harness': 'codex', 'model': 'gpt-6.1-sol', 'effort': 'medium', 'mode': 'auto'}
+                    for role in ('planner', 'implementer', 'reviewer', 'qa')}
 
 
 class RuntimeTests(unittest.TestCase):
@@ -476,9 +478,7 @@ class RuntimeTests(unittest.TestCase):
         payload = {'state_root': str(root / 'state'), 'repo': str(repo),
                    'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'},
                    'approved': {'brief': 'fixture', 'plan': 'fixture', 'seams': ['CLI']},
-                   'profiles': {role: {'harness': 'codex', 'model': 'gpt-6.1-sol', 'effort': 'medium',
-                                       'mode': 'auto'}
-                                for role in ('planner', 'implementer', 'reviewer', 'qa')},
+                   'profiles': FIXTURE_PROFILES,
                    'base': 'main', 'branch': 'main'}
         run = self.call('create', payload)
         return repo, {'state_root': str(root / 'state'), 'run_id': run['run_id']}
@@ -772,7 +772,9 @@ class RuntimeTests(unittest.TestCase):
     def test_profile_proof_is_required_and_must_match_the_authorized_request(self):
         with tempfile.TemporaryDirectory() as directory:
             payload, report = self.provenance_fixture(Path(directory), docs_only=True, bind_profile=False)
-            report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed')
+            planned = FIXTURE_PROFILES['implementer']
+            report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed',
+                          observed_profile=planned)
             self.call('report', {**payload, 'report': report})
             verify = {**payload, 'commit': report['commit'], 'host': 'fixture', 'evidence': 'checked'}
             self.call('verify', verify, ok=False)
@@ -782,11 +784,13 @@ class RuntimeTests(unittest.TestCase):
             self.call('profile-bind', proof, ok=False)
             self.call('profile-bind', {**proof, 'profile_authorization': 'User selected Pi',
                                       'observed_profile': {**requested, 'effort': 'low'}}, ok=False)
-            self.call('profile-bind', {**proof, 'profile_authorization': 'User selected Pi'})
-            self.call('profile-bind', {**proof, 'profile_authorization': 'User selected Pi'}, ok=False)
+            planned_proof = {**payload, 'observed_profile': planned, 'worker_session': 'worker',
+                             'evidence': 'startup', 'availability_verified': True}
+            self.call('profile-bind', planned_proof)
+            self.call('profile-bind', planned_proof, ok=False)
             record = self.call('verify', verify)
             attempt = record['tasks']['build']['attempts'][0]
-            self.assertEqual(attempt['profile_proof']['observed_profile'], requested)
+            self.assertEqual(attempt['profile_proof']['observed_profile'], planned)
             self.assertLessEqual(attempt['created_at'], attempt['dispatched_at'])
             self.assertLessEqual(attempt['dispatched_at'], attempt['reported_at'])
             self.assertLessEqual(attempt['reported_at'], attempt['verified_at'])
@@ -814,7 +818,8 @@ class RuntimeTests(unittest.TestCase):
     def test_verification_refuses_a_report_profile_that_differs_from_the_authorized_request(self):
         with tempfile.TemporaryDirectory() as directory:
             payload, report = self.provenance_fixture(Path(directory), docs_only=True, bind_profile=False)
-            report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed')
+            report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed',
+                          observed_profile=FIXTURE_PROFILES['implementer'])
             self.call('report', {**payload, 'report': report})
             changed = {**FIXTURE_PROFILE, 'effort': 'low'}
             self.call('profile-bind', {**payload, 'requested_profile': changed, 'observed_profile': changed,
@@ -1271,41 +1276,122 @@ class RuntimeTests(unittest.TestCase):
             self.call('attempt', {**run, 'task': 'other', 'resource': stale}, ok=False)
             self.call('attempt', {**run, 'task': 'other', 'resource': {**stale, 'session': 'restarted'}})
 
-    def fake_wait_herdr(self, root, status):
+    def fake_wait_herdr(self, root, status, pane_text='', read_error='', garbage=False):
         fake = root / 'herdr'
         fake.write_text('#!/usr/bin/env python3\nimport json,sys\n'
-                        'print(json.dumps({"result":{"agent":{"pane_id":"w2:p1","workspace_id":"w2",'
-                        f'"agent_status":{status!r},"completion_seq":3}}}}}}))\n')
+                        f'pane = {pane_text!r}\n'
+                        f'read_error = {read_error!r}\n'
+                        f'garbage = {garbage!r}\n'
+                        'if sys.argv[1:3] == ["agent", "read"]:\n'
+                        '    sys.stderr.write(read_error)\n'
+                        '    if read_error:\n'
+                        '        sys.exit(1)\n'
+                        '    if garbage:\n'
+                        '        sys.stdout.buffer.write(b"\\xff\\xfe")\n'
+                        '    else:\n'
+                        '        args = sys.argv[3:]\n'
+                        '        limit = int(args[args.index("--lines") + 1]) if "--lines" in args else 0\n'
+                        '        body = pane.rstrip().splitlines()\n'
+                        '        print("\\n".join(body[-limit:]) if limit else pane, end="")\n'
+                        'else:\n'
+                        '    agent = {"pane_id":"w2:p1","workspace_id":"w2",'
+                        '"agent_status":' + repr(status) + ',"completion_seq":3}\n'
+                        '    print(json.dumps({"result":{"agent":agent}}))\n')
         fake.chmod(0o700)
         return str(fake)
 
+    def wait_fixture(self, pane_text='', status='blocked', **options):
+        """A fresh run and attempt per case: the wait budget is two calls per attempt."""
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        _, run, worktree, _, attempt = self.worker_fixture(root)
+        fake = self.fake_wait_herdr(root, status, pane_text,
+                                    options.pop('read_error', ''), options.pop('garbage', False))
+        payload = {**run, 'task': 'build', 'attempt': attempt['id'], 'timeout_s': 1,
+                   'poll_s': 0.1, 'herdr_bin': fake, **options}
+        return root, run, worktree, attempt, payload
+
     def test_wait_separates_reports_blocks_background_tests_and_silent_settling(self):
+        root, _, _, _, payload = self.wait_fixture(status='idle')
+        self.call('wait', {**payload, 'timeout_s': 601}, ok=False)
+        for status, expected in [('blocked', 'blocked'), ('idle', 'settled-no-report'),
+                                 ('done', 'settled-no-report'), ('working', 'timeout')]:
+            _, _, _, _, payload = self.wait_fixture(status=status)
+            result = self.call('wait', payload)
+            self.assertEqual((result['state'], result['agent_status']), (expected, status))
+        # An idle pane with a test still running in its worktree has not finished.
+        root, _, worktree, _, payload = self.wait_fixture()
+        test = subprocess.Popen(['bash', '-c', 'exec -a "bun test fixture" sleep 30'], cwd=worktree)
+        unrelated = subprocess.Popen(['bash', '-c', 'exec -a "bun test fixture" sleep 30'], cwd=root)
+        try:
+            result = self.call('wait', {**payload, 'herdr_bin': self.fake_wait_herdr(root, 'idle'),
+                                        'busy_pattern': r'\bbun test\b'})
+            self.assertEqual(result['state'], 'background-running')
+            self.assertEqual([p['pid'] for p in result['busy']], [test.pid])
+        finally:
+            test.kill()
+            test.wait()
+            unrelated.kill()
+            unrelated.wait()
+        _, run, _, attempt, payload = self.wait_fixture(status='working')
+        Path(attempt['report_path']).write_text('{}')
+        result = self.call('wait', payload)
+        self.assertEqual(result['state'], 'reported')
+        self.assertEqual(self.call('show', run)['tasks']['build']['attempts'][0]['status'], 'ready')
+
+    def test_wait_budget_refuses_a_third_call(self):
+        _, run, _, _, payload = self.wait_fixture()
+        self.call('wait', payload)
+        self.call('wait', payload)
+        self.assertIn('wait budget exhausted', self.call('wait', payload, ok=False))
+        self.assertEqual(self.call('show', run)['tasks']['build']['attempts'][0]['waits'], 2)
+
+    def test_one_wait_call_holds_until_background_work_settles(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _, run, worktree, _, attempt = self.worker_fixture(root)
-            payload = {**run, 'task': 'build', 'attempt': attempt['id'], 'timeout_s': 1, 'poll_s': 0.1}
-            self.call('wait', {**payload, 'timeout_s': 601, 'herdr_bin': self.fake_wait_herdr(root, 'idle')}, ok=False)
-            for status, expected in [('blocked', 'blocked'), ('idle', 'settled-no-report'),
-                                     ('done', 'settled-no-report'), ('working', 'timeout')]:
-                result = self.call('wait', {**payload, 'herdr_bin': self.fake_wait_herdr(root, status)})
-                self.assertEqual((result['state'], result['agent_status']), (expected, status))
-            # An idle pane with a test still running in its worktree has not finished.
-            test = subprocess.Popen(['bash', '-c', 'exec -a "bun test fixture" sleep 30'], cwd=worktree)
-            unrelated = subprocess.Popen(['bash', '-c', 'exec -a "bun test fixture" sleep 30'], cwd=root)
+            payload = {**run, 'task': 'build', 'attempt': attempt['id'], 'timeout_s': 20,
+                       'poll_s': 0.1, 'busy_pattern': r'\bbun test\b'}
+            background = subprocess.Popen(['bash', '-c', 'exec -a "bun test fixture" sleep 1'],
+                                          cwd=worktree)
             try:
-                result = self.call('wait', {**payload, 'herdr_bin': self.fake_wait_herdr(root, 'idle'),
-                                            'busy_pattern': r'\bbun test\b'})
-                self.assertEqual(result['state'], 'background-running')
-                self.assertEqual([p['pid'] for p in result['busy']], [test.pid])
+                result = self.call('wait', {**payload, 'herdr_bin': self.fake_wait_herdr(root, 'idle')})
             finally:
-                test.kill()
-                test.wait()
-                unrelated.kill()
-                unrelated.wait()
-            Path(attempt['report_path']).write_text('{}')
-            result = self.call('wait', {**payload, 'herdr_bin': self.fake_wait_herdr(root, 'working')})
-            self.assertEqual(result['state'], 'reported')
-            self.assertEqual(self.call('show', run)['tasks']['build']['attempts'][0]['status'], 'ready')
+                background.kill()
+                background.wait()
+            self.assertEqual(result['state'], 'settled-no-report')
+            self.assertEqual(result['busy'], [])
+
+    def test_wait_returns_one_bounded_pane_tail_instead_of_a_follow_up_poll(self):
+        pane = 'which file should I edit\nsecond line\n\n'
+        _, _, _, _, payload = self.wait_fixture(pane)
+        result = self.call('wait', payload)
+        self.assertEqual(result['state'], 'blocked')
+        self.assertEqual(result['tail'], 'which file should I edit\nsecond line')
+        self.assertFalse(result['tail_truncated'])
+        _, _, _, _, payload = self.wait_fixture(pane, tail_lines=1)
+        result = self.call('wait', payload)
+        self.assertEqual(result['tail'], 'second line')
+        self.assertTrue(result['tail_truncated'])
+        _, _, _, _, payload = self.wait_fixture('x' * 5000)
+        result = self.call('wait', payload)
+        self.assertEqual(len(result['tail']), 4000)
+        self.assertTrue(result['tail_truncated'])
+        _, _, _, _, payload = self.wait_fixture(pane, tail_lines=0)
+        self.assertNotIn('tail', self.call('wait', payload))
+        _, _, _, _, payload = self.wait_fixture(pane, read_error='pane unavailable')
+        result = self.call('wait', payload)
+        self.assertEqual(result['tail_error'], 'pane unavailable')
+        self.assertNotIn('tail', result)
+        _, _, _, _, payload = self.wait_fixture(pane, status='working', garbage=True)
+        result = self.call('wait', payload)
+        self.assertEqual(result['state'], 'timeout')
+        self.assertIn('tail_error', result)
+        self.assertNotIn('tail', result)
+        _, _, _, _, payload = self.wait_fixture(pane)
+        for invalid in (201, -1, True, '40'):
+            self.call('wait', {**payload, 'tail_lines': invalid}, ok=False)
 
 
 if __name__ == '__main__':

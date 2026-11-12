@@ -122,7 +122,7 @@ back to `~/.local/state/flyingnobita-deliver`. Keep state outside checkouts.
 | `verify` | `task`, `attempt`, `commit`, revalidated host `session` as `host`, independent commands/results as `evidence`. Requires report without pending questions and matching HEAD. New runs also require the report's `observed_profile` to match the authorized request recorded in the immutable profile proof; historical runs stay resumable. This is the orchestrator's attestation, not a test runner. |
 | `handoff` | `task`, `attempt`, `evidence` (handoff document or the observed reason, such as a quota refusal), optional `worker:{workspace,pane,agent}`, optional `requested_profile` with `profile_authorization`. For an unreported attempt whose worker cannot continue, or whose prompt arrived but never ran. Requires a `reconcile` matching the current HEAD and cleanliness. Moves the work, partial commits included, to a new ready attempt in the same worktree; the old attempt stays `handed-off`. Use `prompt` once for the new attempt. After a report, use `followup` instead. |
 | `abandon` | `task`, `evidence`, `user_decision`. Closes an unverified task the user chose to drop. Releases its worktree and pane for other tasks; dependents stay blocked. Removes nothing. |
-| `wait` | `task`, `attempt`, optional `timeout_s` (at most 600, default 300), `poll_s`, `busy_pattern`. Read-only. Returns `reported`, `blocked`, `exited`, `background-running` (pane idle, but a matching process such as a test still runs in the worktree), `settled-no-report` or `timeout`. Never matches its own process. `herdr_bin` is a test-boundary override. |
+| `wait` | `task`, `attempt`, optional `timeout_s` (at most 600, default 300), `poll_s`, `busy_pattern`, `tail_lines` (at most 200, default 40; 0 disables). Records `waits` on the attempt and refuses a third call with the attempt budget spent, so chained polling has no path. One call holds until `reported`, `blocked`, `exited` or an idle pane with no background work (`settled-no-report`), and keeps waiting while a matching process such as a test still runs in the worktree; only the deadline returns `background-running` or `timeout`. Returns `state`, `agent_status`, `busy`, `report_path` and the last `tail_lines` lines of the pane, at most 4000 characters, as `tail`, with `tail_truncated` when the pane held more lines than that or the character cap clipped it (a failed read returns `tail_error` instead); the tail read stays inside the wait deadline. Never matches its own process. `herdr_bin` is a test-boundary override. |
 | `recover` | `task`. Requires exited worker, proven non-submission, unchanged clean baseline and no report. Persists at most two recoveries across restarts. Completed changes require inspection/report/verification instead; ambiguity stops. |
 | `cleanup-check` | `task`, `attempt`, current `observation` equal to resource, `landed` ref. Requires verified task, clean worktree and ancestry or identical landed tree (squash case). Records evidence; removes nothing itself. |
 
@@ -157,12 +157,17 @@ example for delivery runs.
 On resume, read a compact summary of stage, current attempts, HEADs, profile
 bindings, dispatch/completion state and evidence paths. Read complete reports or
 transcripts only to resolve a named uncertainty. Keep full logs on disk; routine
-updates use bounded output deltas and the last meaningful result. Prefer native
-completion waits after the saved baseline while independent work progresses.
-An empty wait is not completion and does not justify another prompt. Wait
-on an attempt with the runtime's `wait`, not a hand-written polling loop:
-`settled-no-report` and `background-running` mean inspect the pane, never
-mark done.
+updates use bounded output deltas and the last meaningful result. Wait on an
+attempt with one runtime `wait` call, not a hand-written polling loop: it holds
+through background work and returns the agent status, busy processes and a
+bounded pane tail, replacing the follow-up `agent get` or `agent read` poll.
+The runtime counts waits on the attempt and refuses a third, so polling has no
+path through this command; the escape from an unfinished attempt is `followup`,
+`handoff` or `abandon`, not another wait. Do independent work while a wait runs
+and never poll a worker pane, though a `blocked` receipt still gets the one
+visible-UI inspection step 5 requires. An empty pane tail is not completion and
+does not justify another prompt. `settled-no-report` and `background-running`
+mean inspect the returned tail, never mark done.
 
 Send role work only through `prompt`, `followup` or `handoff`. A stuck attempt
 moves through `handoff`, a dropped task through `abandon`; a bare
@@ -290,12 +295,18 @@ a later record is reconciliation evidence, never proof of prior intent.
    from this saved artifact. This preserves plan-mode restrictions on project
    code. Never approve ExitPlanMode to implement.
 4. Inspect visible UI and readiness before `prompt` (unknown permission dialogs
-   can resemble idle). Let the helper submit once. Subsequent observation uses
-   `herdr agent wait PANE --timeout 30000`, `agent get`, and a bounded
-   `agent read`. Settlement alone never passes a stage: require
-   activity/completion after the saved baseline, matching harness session,
-   matching report and independent verification. A timeout or
-   `agent_prompt_stalled` means inspect, not resend.
+   can resemble idle). Let the helper submit once. Completion observation is one
+   `wait` call with the longest timeout that fits the work (up to 600 seconds):
+   it holds through background work and returns the agent status, busy processes
+   and a bounded pane tail. Do not chain `herdr agent wait`, `agent get`,
+   `agent read` or terminal input to poll a worker pane; one second `wait`
+   follows only the returned `blocked`, `background-running` or `timeout` event,
+   and the runtime refuses a third.
+   Settlement alone never passes a stage: require activity/completion after the
+   saved baseline, matching harness session, matching report and independent
+   verification. An empty pane tail is not completion, and `settled-no-report`
+   means inspect, never mark done. A timeout or `agent_prompt_stalled` means
+   inspect, not resend.
 5. On `blocked` or an unfamiliar dialog, read the bounded visible tail, explain
    the request and name the exact worker/pane. Notify with
    `herdr notification show TITLE --body TEXT --sound request` and ask the user
