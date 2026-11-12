@@ -23,7 +23,7 @@ On top of those skills, `deliver` adds:
 - A host to run them on. Each agent is a visible session in [Herdr](https://herdr.dev), [Paseo](https://paseo.sh) or [Orca](https://www.onorca.dev).
 - Checks between handoffs. The orchestrator reruns the tests and linters itself before it accepts an agent's report.
 
-Your installed skills stay as they are. `deliver` finds them with or without the `mattpocock-` prefix, and [dependencies.md](skills/deliver/references/dependencies.md) lists what each role loads.
+Your installed skills stay as they are. [dependencies.md](skills/deliver/references/dependencies.md) lists what each role loads.
 
 ## Quick start
 
