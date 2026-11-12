@@ -1,5 +1,6 @@
 # Changes
 
+- Nov-12, 2026 - 12:59 AM +08 - Pre-trust each new Herdr worktree checkout for the planned harness and record the acknowledgement with `worktree-trust` before dispatch: `prompt` and `dispatch-intent` now refuse an attempt whose checkout and harness have no recorded trust, the adapter names the verified Claude and Codex trust stores, and raw text, keys or `/status` writes into a live worker pane are forbidden.
 - Nov-12, 2026 - 12:51 AM +08 - Ask at the grilling stop whether the user wants the change activated locally before it ships, record the activation and restore steps in the brief and the approved plan before the ship stage, run them with a gate and a stop for the user's try-out, and treat activation work that starts during ship as a scope change (DLV-20).
 - Nov-12, 2026 - 12:48 AM +08 - Bound Herdr pane observation to a status plus a fixed tail: every `agent read` passes `--lines` at or below 40, a wider read is replaced by a bounded source, report or worktree file, and worker reports keep one status line per check plus at most 20 lines of failing output.
 - Nov-12, 2026 - 12:47 AM +08 - Require a second-rewrite variant in every stateful seam group's test: a second pass with an adjacent state that asserts what the first left and the order or retention limit the seam has, and reject a single-write behavioural group at the red check.
