@@ -116,7 +116,7 @@ For a bug whose cause the input does not establish, the planner loads `diagnosin
 
 Read the plan yourself and check its claims against the code. Present the plan, its seams and what you verified.
 
-Done when the user approves the plan and its seams. For a ticket graph, the plan is the ticket breakdown and its order. Then commit the approved `AGENTS.md` rules, tracker records and domain docs on the work branch following repository commit rules (or a configured custom commit skill), before the build starts. Delivery records (handoffs, plans, progress logs) stay in the run directory when the product ships or fingerprints its own tree, since their local paths would enter the artifact.
+Done when the user approves the plan and its seams, then `approve` records that approval with `approved` holding the `brief`, `plan` and `seams`, plus the actual request/approval as `evidence`. Record it before any build task or attempt exists, because `attempt` refuses without it; the build starts only after the record exists. For a ticket graph, the plan is the ticket breakdown and its order. Then commit the approved `AGENTS.md` rules, tracker records and domain docs on the work branch following repository commit rules (or a configured custom commit skill), before the build starts. Delivery records (handoffs, plans, progress logs) stay in the run directory when the product ships or fingerprints its own tree, since their local paths would enter the artifact.
 
 ## 5. Build
 
