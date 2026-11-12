@@ -4,6 +4,27 @@ Turn a GitHub issue into reviewed code with a team of coding agents. Choose a di
 
 Runs [Matt Pocock's skills](https://github.com/mattpocock/skills) (`grilling`, `tdd`, `code-review`, `pr` and the rest) across [Herdr](https://herdr.dev), [Paseo](https://paseo.sh) and [Orca](https://www.onorca.dev). Each role can run on its own harness (Claude Code, Codex and so on), model and effort level. The orchestrator re-checks every agent's work before it ships.
 
+## Already using Matt Pocock's skills?
+
+Then you can now spread them across several agents and models. In one session, you load `grilling`, `tdd`, `code-review` and `pr` yourself, one after another, and one model does every step. `deliver` follows the same implement workflow and hands each step to the role that owns it:
+
+| Step                      | Skill                         | Run by                      |
+| ------------------------- | ----------------------------- | --------------------------- |
+| Settle the brief with you | `grilling`, `domain-modeling` | Orchestrator (your session) |
+| Plan the slices           | `diagnosing-bugs` (for bugs)  | Planner                     |
+| Build test-first          | `tdd`                         | Implementer                 |
+| Review standards and spec | `code-review`                 | Reviewer                    |
+| Write the PR body         | `pr`                          | Orchestrator                |
+
+On top of those skills, `deliver` adds:
+
+- Its own harness, model and effort for each role. Plan with a strong model, implement with a cheaper one, and review with another vendor's.
+- Parallel builds. Independent parts of a change become tickets, each with its own worktree and implementer, up to `max_workers` at once.
+- A host to run them on. Each agent is a visible session in [Herdr](https://herdr.dev), [Paseo](https://paseo.sh) or [Orca](https://www.onorca.dev).
+- Checks between handoffs. The orchestrator reruns the tests and linters itself before it accepts an agent's report.
+
+Your installed skills stay as they are. `deliver` finds them with or without the `mattpocock-` prefix, and [dependencies.md](skills/deliver/references/dependencies.md) lists what each role loads.
+
 ## Quick start
 
 Choose your host below.
