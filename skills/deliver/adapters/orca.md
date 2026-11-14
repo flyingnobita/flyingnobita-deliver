@@ -79,7 +79,7 @@ arguments or properly quoted argv; do not interpolate task text as shell code.
 | Operation | Native operation and delivery rule |
 |---|---|
 | Bind run | `orchestration run-create --objective "deliver <work>" --json`; save returned Run ID. Resume with `run-use --id <id>` only after verifying coordinator ownership. Never take over an active coordinator. |
-| Create workspace | `worktree create --repo path:<repo> --name <unique> --base-branch <resolved-base> --setup <policy> --json`. Keep UI focus. Record returned full worktree ID, path and actual branch. The creation receipt is authoritative, not the intended branch label in the draft record. |
+| Create workspace | `worktree create --repo path:<repo> --name <unique> --branch <branch> --base-branch <resolved-base> --setup <policy> --json`. Without `--branch`, Orca names the branch `<git-user>/<name>` and suffixes a taken name (Orca 1.4.258, 2026-11-14). Keep UI focus. Record returned full worktree ID, path and actual branch. The creation receipt is authoritative, not the intended branch label in the draft record. |
 | Create task | `orchestration task-create --spec <brief> --json`. Journal this mutation and save its Task ID before dispatch. Use explicit dependencies when useful, but dispatch only after delivery blockers are verified and merged. |
 | Start role | `orchestration worker-start --task <id> --worktree id:<full-worktree-id> --agent <harness> [--model <id> --effort <level>] --json`. Pre-created worktrees give an exact base before dispatch. Do not pass creation flags for an existing worktree. Omit `--retry-request` for a new start: Orca accepts only the native request UUID it reported for the original request, and only when replaying that request. |
 | Running follow-up | `orchestration send --to dispatch:<id> --subject <subject> --body <guidance> --json`; enqueue is not proof it was read. |
@@ -88,7 +88,7 @@ arguments or properly quoted argv; do not interpolate task text as shell code.
 | Answer question | `orchestration reply --id <message-id> --body <answer> --json`, only when the approved plan or a user decision supplies the answer. Resume pending asks by message ID after timeout. |
 | Settle resource | After accepted completion, immediately reuse, explicitly user-requested retain, or `worker-release --dispatch <id>`. Native settlement is separate from the delivery gate. Preserve the worktree for verification even when the worker is released. |
 | Notify | Report the exact task/worker and needed decision in this conversation. Use an available native notification or guarded `notify-send`/macOS notification; no private-message service is implied. |
-| Remove workspace | After verified landing, fresh ownership and clean-tree checks, journal and call `worktree rm --worktree id:<full-id> --json`, without force. Preserve user-owned, reused or ambiguous workspaces. |
+| Remove workspace | After verified landing, fresh ownership and clean-tree checks, journal and call `worktree rm --worktree id:<full-id> --json`, without force. It removes the checkout and its registration but keeps the branch: delete it with `git branch -d`. Preserve user-owned, reused or ambiguous workspaces. |
 
 Each Task brief names target, change, constraints, ownership and observable
 acceptance; points to the approved artifacts and relevant role instructions;

@@ -76,8 +76,8 @@ request's order:
 2. Create its workspace through the adapter, branched from the target's current
    tip, on a branch named `<kaneo-key>-<slug>` (else `<issue>-<slug>`). On
    Paseo pass that tip's SHA as `baseBranch`, not `origin/<default>`.
-   Record the branch the host reports: Orca derives it from `--name` (for
-   example `orca-rebase/t1`), so use that name in every later step.
+   On Orca pass the name with `--branch`: `--name` alone yields
+   `<git-user>/<name>`. Use the branch the host reports in every later step.
 3. Start one implementer worker in it with: the ticket reference, the command
    to run `implement` (or `mattpocock-implement`) for that ticket alone, the
    repo's commit rules (or the configured `commit_skill`), a `Fixes #N` footer
