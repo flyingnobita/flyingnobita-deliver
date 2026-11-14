@@ -11,9 +11,7 @@ Roles and their profiles come from the adapter. Every role brief:
 - distinguishes plan-settled limitations from outstanding acceptance checks;
 - names fixture/source-mutating commands. Worker and independent checks use
   separate disposable copies, or an explicit serial handoff in one worktree;
-- names the checks to run: the plan's required test list by name, plus every
-  test that references a changed file. Your independent run uses the same set,
-  never a narrower hand-picked one;
+- names the checks to run: the plan's required test list by name ([plan stop](../SKILL.md#4-plan-stop)), plus every test that references a changed file. Your independent run uses the same set, never a narrower hand-picked one;
 - carries the pinned test environment recorded at the baseline (variables and
   tool paths, nothing inherited from your shell) and the known host hazards,
   such as tools that hang under a fake home. After each test command the worker
