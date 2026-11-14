@@ -1379,6 +1379,49 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(self.call('prompt', prompt)['tasks']['build']['attempts'][-1]['status'],
                              'observed')
 
+    def test_an_unknown_test_commit_refusal_returns_to_its_worker_through_followup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            unknown = json.loads(json.dumps(report))
+            unknown['test_evidence'][0]['test_commit'] = '0' * 40
+            self.assertIn('test provenance commit mismatch',
+                          self.call('report', {**payload, 'report': unknown}, ok=False))
+            record = self.call('show', payload)
+            attempt = record['tasks']['build']['attempts'][0]
+            self.assertEqual(attempt['status'], 'dispatch-uncertain')
+            self.assertEqual(attempt['report_refusal']['message'], 'test provenance commit mismatch')
+            self.assertFalse(Path(attempt['report_path']).exists())
+            self.assertEqual(record['tasks']['build']['refusals'], 1)
+            record = self.call('followup', payload)
+            old, new = record['tasks']['build']['attempts']
+            self.assertEqual((old['status'], old['followup_evidence']),
+                             ('continued', 'test provenance commit mismatch'))
+            self.assertEqual((new['status'], new['resource'], new['base']),
+                             ('ready', old['resource'], report['commit']))
+
+    def test_a_test_path_missing_from_the_cited_commit_is_refused_and_recorded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            missing = json.loads(json.dumps(report))
+            missing['test_evidence'][0]['tests'][0]['path'] = 'test_missing.py'
+            self.assertIn('test path missing from the cited test commit',
+                          self.call('report', {**payload, 'report': missing}, ok=False))
+            attempt = self.call('show', payload)['tasks']['build']['attempts'][0]
+            self.assertEqual(attempt['report_refusal']['message'],
+                             'test path missing from the cited test commit')
+            self.assertFalse(Path(attempt['report_path']).exists())
+
+    def test_a_valid_report_retried_on_a_refused_attempt_clears_the_refusal(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            self.assertIn('full commit hashes', self.call('report', {
+                **payload, 'report': self.refused_report(report, payload['attempt'])}, ok=False))
+            record = self.call('report', {**payload, 'report': report})
+            attempt = record['tasks']['build']['attempts'][0]
+            self.assertEqual(attempt['status'], 'reported')
+            self.assertNotIn('report_refusal', attempt)
+            self.assertTrue(Path(attempt['report_path']).exists())
+
     def test_a_third_refused_report_cannot_loop_through_followup(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

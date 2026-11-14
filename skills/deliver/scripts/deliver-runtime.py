@@ -552,8 +552,11 @@ def require_worktree_trust(task, attempt):
 def test_commit(repo, value):
     require(isinstance(value, str) and re.fullmatch(r'(?:[0-9a-f]{40}|[0-9a-f]{64})', value),
             'test provenance requires full commit hashes')
-    require(git(repo, 'rev-parse', '--verify', value + '^{commit}') == value,
-            'test provenance commit mismatch')
+    try:
+        resolved = git(repo, 'rev-parse', '--verify', value + '^{commit}')
+    except subprocess.CalledProcessError:
+        resolved = None
+    require(resolved == value, 'test provenance commit mismatch')
 
 
 def test_report(record, task, attempt, report):
@@ -606,8 +609,12 @@ def test_report(record, task, attempt, report):
                     'test paths must be unique checkout-relative files')
             paths.add(path)
             covered.add(path)
-            blob = subprocess.check_output(['git', '-C', record['repo'], 'cat-file', 'blob',
-                                            group['test_commit'] + ':' + path], stderr=subprocess.PIPE)
+            try:
+                blob = subprocess.check_output(['git', '-C', record['repo'], 'cat-file', 'blob',
+                                                group['test_commit'] + ':' + path],
+                                               stderr=subprocess.PIPE)
+            except subprocess.CalledProcessError:
+                raise ValueError('test path missing from the cited test commit') from None
             require(test.get('sha256') == hashlib.sha256(blob).hexdigest(),
                     'test content hash differs from cited test commit')
     require(changed_tests <= covered, 'changed test paths missing from provenance groups')
