@@ -1360,6 +1360,7 @@ class RuntimeTests(unittest.TestCase):
             record = self.call('show', payload)
             attempt = record['tasks']['build']['attempts'][0]
             self.assertEqual(attempt['status'], 'dispatch-uncertain')
+            self.assertIn('report_refusal', attempt, 'a refused report must be recorded on the attempt')
             self.assertEqual(attempt['report_refusal']['message'], 'test provenance requires full commit hashes')
             self.assertFalse(Path(attempt['report_path']).exists())
             self.assertEqual(record['tasks']['build']['refusals'], 1)
