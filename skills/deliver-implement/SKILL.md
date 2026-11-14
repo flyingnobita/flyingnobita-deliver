@@ -75,6 +75,8 @@ request's order:
    status labels (only you change statuses).
 2. Create its workspace through the adapter, branched from the target's current
    tip, on a branch named `<kaneo-key>-<slug>` (else `<issue>-<slug>`).
+   Record the branch the host reports: Orca derives it from `--name` (for
+   example `orca-rebase/t1`), so use that name in every later step.
 3. Start one implementer worker in it with: the ticket reference, the command
    to run `implement` (or `mattpocock-implement`) for that ticket alone, the
    repo's commit rules (or the configured `commit_skill`), a `Fixes #N` footer
@@ -117,9 +119,13 @@ commits, so a later publish accepts the range.
    `git update-ref refs/heads/<target> <branch-sha> <target-sha>`.
 4. Set the repo's done or review `status:` label. Leave the issue open: its
    `Fixes #N` footer closes it when the user publishes.
-5. Clean up through the adapter: close the worker and its workspace, remove the
-   worktree, then `git branch -d <branch>`, which succeeds because the target
-   now contains the branch.
+5. Clean up through the adapter: close the worker, then remove its workspace
+   and worktree with the adapter's single removal call (`herdr worktree
+   remove --workspace` on Herdr, `worktree rm` on Orca, `archive_workspace` on
+   Paseo); never close a Herdr workspace first, or the removal loses its ID.
+   Run `git worktree prune`, since Paseo leaves the registration behind, then
+   `git branch -d <branch>`, which succeeds because the target now contains
+   the branch.
 
 When a ticket **blocks**, notify the user through the adapter's notify
 operation with the ticket, the failed command and receipt, and its worktree and
