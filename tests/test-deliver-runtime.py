@@ -1331,6 +1331,74 @@ class RuntimeTests(unittest.TestCase):
             self.call('report', {**payload, 'report': {**report, 'attempt': followup['id'], 'questions': []}})
             self.call('verify', {**payload, 'commit': attempt['base'], 'host': 'fixture', 'evidence': 'independent checked'})
 
+    def fake_herdr(self, root):
+        fake = root / 'herdr'
+        fake.write_text('#!/usr/bin/env python3\nimport json,sys\n'
+                        'if sys.argv[1:3] == ["agent", "get"]:\n'
+                        ' print(json.dumps({"result":{"agent":{"pane_id":"w2:p1",'
+                        '"workspace_id":"w2","agent_status":"done","completion_seq":7,'
+                        '"agent_session":{"value":"worker"}}}}))\n'
+                        'else:\n'
+                        ' args=sys.argv[1:]\n'
+                        ' sys.exit(0 if args.count("--until")==2 and '
+                        '"working" in args and "blocked" in args else 1)\n')
+        fake.chmod(0o700)
+        return fake
+
+    def refused_report(self, report, attempt):
+        short = json.loads(json.dumps(report))
+        short['attempt'] = attempt
+        short['test_evidence'][0]['test_commit'] = short['test_evidence'][0]['test_commit'][:12]
+        return short
+
+    def test_a_refused_report_returns_to_its_worker_through_followup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload, report = self.provenance_fixture(root)
+            self.assertIn('full commit hashes', self.call('report', {
+                **payload, 'report': self.refused_report(report, payload['attempt'])}, ok=False))
+            record = self.call('show', payload)
+            attempt = record['tasks']['build']['attempts'][0]
+            self.assertEqual(attempt['status'], 'dispatch-uncertain')
+            self.assertEqual(attempt['report_refusal']['message'], 'test provenance requires full commit hashes')
+            self.assertFalse(Path(attempt['report_path']).exists())
+            self.assertEqual(record['tasks']['build']['refusals'], 1)
+            # No user decision: the refusal itself is the evidence, on the same worker.
+            record = self.call('followup', payload)
+            old, new = record['tasks']['build']['attempts']
+            self.assertEqual((old['status'], old['followup_evidence']),
+                             ('continued', attempt['report_refusal']['message']))
+            self.assertEqual((new['status'], new['resource'], new['base']),
+                             ('ready', old['resource'], report['commit']))
+            self.assertNotEqual(new['report_path'], old['report_path'])
+            self.trust_attempt({**payload, 'attempt': new['id']}, harness='pi')
+            prompt = {**payload, 'attempt': new['id'], 'prompt': 'resend the full test hashes',
+                      'herdr_bin': str(self.fake_herdr(root)), 'worker_session': 'worker',
+                      'timeout_ms': 100}
+            self.assertEqual(self.call('prompt', prompt)['tasks']['build']['attempts'][-1]['status'],
+                             'observed')
+
+    def test_a_third_refused_report_cannot_loop_through_followup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload, report = self.provenance_fixture(root)
+            fake = self.fake_herdr(root)
+            attempt = self.call('show', payload)['tasks']['build']['attempts'][-1]
+            for refusals in (1, 2):
+                self.call('report', {**payload, 'attempt': attempt['id'],
+                                     'report': self.refused_report(report, attempt['id'])}, ok=False)
+                attempt = self.call('followup', {
+                    **payload, 'attempt': attempt['id']})['tasks']['build']['attempts'][-1]
+                if refusals == 1:
+                    self.trust_attempt({**payload, 'attempt': attempt['id']}, harness='pi')
+                self.call('prompt', {**payload, 'attempt': attempt['id'], 'prompt': 'resend',
+                                     'herdr_bin': str(fake), 'worker_session': 'worker',
+                                     'timeout_ms': 100})
+            self.call('report', {**payload, 'attempt': attempt['id'],
+                                 'report': self.refused_report(report, attempt['id'])}, ok=False)
+            self.assertEqual(self.call('show', payload)['tasks']['build']['refusals'], 3)
+            self.assertIn('two refused reports per task',
+                          self.call('followup', {**payload, 'attempt': attempt['id']}, ok=False))
 
     def worker_fixture(self, root, task='build', branch='build', pane='w2:p1'):
         repo, run = self.setup_run(root)

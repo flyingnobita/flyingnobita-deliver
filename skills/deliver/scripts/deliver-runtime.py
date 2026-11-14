@@ -828,15 +828,23 @@ def update_task(command, data, record, directory):
         attempt['status'] = 'dispatch-uncertain'
         attempt['dispatched_at'] = observed_at()
     elif command == 'followup':
-        require(attempt['status'] == 'reported' and not task['verified'] and data.get('evidence'),
-                'followup requires unverified report and recorded answer/decision')
-        head = check_resource(record, attempt['resource'])
-        require(head in (json.loads(Path(attempt['report_path']).read_text())['commit'],
-                         attempt.get('rebased', {}).get('commit')),
-                'work changed since report; inspect before followup')
+        refusal = attempt.get('report_refusal') if attempt['status'] != 'reported' else None
+        require((attempt['status'] == 'reported' or refusal) and not task['verified']
+                and (data.get('evidence') or refusal),
+                'followup requires an unverified report or refused report, plus answer/decision evidence')
+        if refusal:
+            require(task.get('refusals', 0) <= 2,
+                    'refused report limit reached: at most two refused reports per task; abandon with a user decision')
+            head = check_resource(record, attempt['resource'])
+            require(head == refusal['commit'], 'work changed since refusal; inspect before followup')
+        else:
+            head = check_resource(record, attempt['resource'])
+            require(head in (json.loads(Path(attempt['report_path']).read_text())['commit'],
+                             attempt.get('rebased', {}).get('commit')),
+                    'work changed since report; inspect before followup')
         chosen = requested_profile(record, task, data, attempt)
         attempt['status'] = 'continued'
-        attempt['followup_evidence'] = data['evidence']
+        attempt['followup_evidence'] = data.get('evidence') or refusal['message']
         attempt_id = uuid.uuid4().hex
         task['attempts'].append({'id': attempt_id, 'resource': dict(attempt['resource']),
                                  'created_at': observed_at(), 'requested_profile': chosen,
@@ -917,9 +925,19 @@ def update_task(command, data, record, directory):
                 'report identity mismatch')
         require(report.get('checks') and isinstance(report.get('questions'), list), 'incomplete report')
         require(report.get('commit') == check_resource(record, attempt['resource']), 'report commit mismatch')
-        test_report(record, task, attempt, report)
-        if record.get('profile_contract') == 1:
-            report_profile(task, attempt, report)
+        try:
+            test_report(record, task, attempt, report)
+            if record.get('profile_contract') == 1:
+                report_profile(task, attempt, report)
+        except ValueError as error:
+            # A refused report goes back to its own worker through followup; record
+            # the refusal before this command fails so the attempt stays reusable.
+            task['refusals'] = task.get('refusals', 0) + 1
+            attempt['report_refusal'] = {'message': str(error), 'commit': report['commit'],
+                                         'at': observed_at()}
+            atomic(directory / 'run.json', record)
+            raise
+        attempt.pop('report_refusal', None)
         path = Path(attempt['report_path'])
         if path.exists():
             require(json.loads(path.read_text()) == report, 'report is immutable')
