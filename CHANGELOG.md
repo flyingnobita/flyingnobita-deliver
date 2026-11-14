@@ -1,11 +1,8 @@
 # Changes
 
 - Nov-14, 2026 - 04:47 PM +08 - State in the Herdr adapter that `followup` `evidence` is required for a reported attempt, and that a recorded refusal is the evidence for a refused one (DLV-26).
-
 - Nov-14, 2026 - 04:44 PM +08 - Record at most one refused `report` per attempt, keeping the first refusal message so a second one cannot spend the two-return budget, and refuse `handoff` on a refused attempt so the refusal returns through `followup` to its own worker (DLV-26).
-
 - Nov-14, 2026 - 04:07 PM +08 - Record every refused `report` on the attempt, including a full-length but unknown `test_commit` and a cited test path missing from its commit, so the refusal returns through `followup` instead of a raw Git error; the Herdr adapter names restoring the worktree to the reported commit before that `followup` (DLV-26).
-
 - Nov-14, 2026 - 03:40 PM +08 - Record Herdr and Orca worktree behavior from live checks: `deliver-implement` now passes `--branch` on Orca so a ticket's branch is exactly `<kaneo-key>-<slug>` instead of `<git-user>/<name>`; both hosts' removal keeps the branch for `git branch -d`; and closing a Herdr workspace first orphans the worktree, recoverable with `herdr worktree open`. Receipts are in `docs/quick-start-receipts/2026-11-14-herdr-worktree-cleanup.md` and `2026-11-14-orca-worktree-branch.md`.
 - Nov-14, 2026 - 03:25 PM +08 - Record a `checkpoint` at every stage transition in the Herdr adapter, so a run's record shows grilling, plan, build, review, ship and report timing and ends on the final stage instead of `setup` (DLV-30).
 - Nov-14, 2026 - 03:14 PM +08 - State the Herdr attempt contract next to the operations it governs, so a run learns it from the doc instead of refusals: `resource.session` is the run's `host.session`, the previous role's task is verified or abandoned before the next role's attempt in that worktree, a later attempt on a moved HEAD passes `approved_base`, and the attempt is recorded before `agent start` (DLV-29).

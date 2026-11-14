@@ -1540,6 +1540,10 @@ class RuntimeTests(unittest.TestCase):
             payload, report = self.provenance_fixture(Path(directory))
             self.assertIn('full commit hashes', self.call('report', {
                 **payload, 'report': self.refused_report(report, payload['attempt'])}, ok=False))
+            attempt = self.call('show', payload)['tasks']['build']['attempts'][0]
+            self.call('reconcile', {**payload, 'observation': {
+                'session': 'fixture', 'resource': attempt['resource'], 'agent_state': 'idle',
+                'commit': report['commit'], 'dispatch': 'uncertain'}})
             self.assertIn('followup', self.call('handoff', {
                 **payload, 'evidence': 'agy quota exhausted; move the refused work to another worker'},
                 ok=False))
