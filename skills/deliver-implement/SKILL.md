@@ -117,13 +117,13 @@ commits, so a later publish accepts the range.
    `git update-ref refs/heads/<target> <branch-sha> <target-sha>`.
 4. Set the repo's done or review `status:` label. Leave the issue open: its
    `Fixes #N` footer closes it when the user publishes.
-5. Clean up through the adapter: close the worker and its window, remove the
+5. Clean up through the adapter: close the worker and its workspace, remove the
    worktree, then `git branch -d <branch>`, which succeeds because the target
    now contains the branch.
 
 When a ticket **blocks**, notify the user through the adapter's notify
 operation with the ticket, the failed command and receipt, and its worktree and
-window. Keep both, hold its dependents, and continue independent tickets. Check
+workspace. Keep both, hold its dependents, and continue independent tickets. Check
 the ticket again at each later wait; once the user reports a fix, land it from
 step 1. A ticket the user drops is recorded as abandoned with their words as
 evidence; its dependents stay blocked.
@@ -137,7 +137,7 @@ every ticket landed, otherwise `blocked`, with the landed range as evidence. On
 Paseo, append the same final state to the run directory's run note instead.
 
 Report: the target branch and its final SHA; each ticket as landed (its
-commit range), blocked (reason, kept worktree and window) or abandoned; the requested
+commit range), blocked (reason, kept worktree and workspace) or abandoned; the requested
 and effective implementer profile; the verification commands you ran; and the
 issues that close on publish. Nothing is pushed: publishing is a separate
 request. Suggest `deliver-review` (or `flyingnobita-deliver-review`) on the
