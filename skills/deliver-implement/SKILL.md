@@ -74,7 +74,8 @@ request's order:
 1. **Claim** it: set the repo's in-progress `status:` label when the repo uses
    status labels (only you change statuses).
 2. Create its workspace through the adapter, branched from the target's current
-   tip, on a branch named `<kaneo-key>-<slug>` (else `<issue>-<slug>`).
+   tip, on a branch named `<kaneo-key>-<slug>` (else `<issue>-<slug>`). On
+   Paseo pass that tip's SHA as `baseBranch`, not `origin/<default>`.
    Record the branch the host reports: Orca derives it from `--name` (for
    example `orca-rebase/t1`), so use that name in every later step.
 3. Start one implementer worker in it with: the ticket reference, the command
@@ -123,9 +124,8 @@ commits, so a later publish accepts the range.
    and worktree with the adapter's single removal call (`herdr worktree
    remove --workspace` on Herdr, `worktree rm` on Orca, `archive_workspace` on
    Paseo); never close a Herdr workspace first, or the removal loses its ID.
-   Run `git worktree prune`, since Paseo leaves the registration behind, then
-   `git branch -d <branch>`, which succeeds because the target now contains
-   the branch.
+   Then run `git branch -d <branch>`, which succeeds because the target now
+   contains the branch.
 
 When a ticket **blocks**, notify the user through the adapter's notify
 operation with the ticket, the failed command and receipt, and its worktree and

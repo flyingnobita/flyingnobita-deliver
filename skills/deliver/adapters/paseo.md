@@ -44,13 +44,13 @@ These replace `create`/`approve`, `report`, `rebased`, `verify` and
 
 | Operation | Paseo |
 |---|---|
-| Create a workspace | `create_workspace` with `isolation: worktree`, `mode: branch-off`, `path` = repo root, `branchName`, and an explicit `baseBranch` (`origin/<default>` for a direct repo, `upstream/<default>` for an upstream repo). It registers the project; keep the returned `workspaceId` and `cwd`. Leave `background` unset; set it only when the user asked for a workspace hidden from the sidebar. |
+| Create a workspace | `create_workspace` with `isolation: worktree`, `mode: branch-off`, `path` = repo root, `branchName`, and an explicit `baseBranch` (`origin/<default>` for a direct repo, `upstream/<default>` for an upstream repo; `deliver-implement` passes the target tip's SHA). A local branch name or SHA resolves locally, even when unpushed (Paseo 0.15.4, 2026-11-14). It registers the project; keep the returned `workspaceId` and `cwd`. Leave `background` unset; set it only when the user asked for a workspace hidden from the sidebar. |
 | Start a role | `create_agent` with the materialized profile, `workspaceId`, a title `<Role>: <work>`, and the role brief as `initialPrompt`. Leave `notifyOnFinish` at its default. |
 | Send a follow-up | `send_agent_prompt` to the same role agent, so it keeps its context. |
 | Wait for an event | Do nothing: finish, error and permission notifications arrive on their own. When a notification's response is truncated, read the rest with `get_agent_activity`. |
 | Answer a permission | `respond_to_permission` (rule below). |
 | Notify the user | End your turn; Paseo marks the workspace as needing attention. |
-| Remove a workspace | `archive_workspace`; it archives the role agents and removes the Paseo-owned worktree. |
+| Remove a workspace | `archive_workspace`; it archives the role agents and removes the Paseo-owned worktree and its Git registration, but keeps the branch: delete it with `git branch -d`. |
 
 ## Planner output
 
