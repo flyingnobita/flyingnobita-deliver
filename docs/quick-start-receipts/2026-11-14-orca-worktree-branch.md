@@ -26,8 +26,12 @@ After a commit in each worktree and `git merge --ff-only` on `main`,
 `removed: true`. The checkout and its registration were gone; each branch
 remained, and `git branch -d` deleted it.
 
-The Orca window showed a "rename failed" notice during the run; its cause was
-not identified.
+The Orca window showed "Branch auto-name failed ... Generation timed out after
+60s" for `naga`, the UI-created worktree whose agent ran this test, not for any
+test worktree. Orca tries to rename a UI worktree's placeholder branch from its
+first agent message; on timeout the branch keeps its placeholder
+(`flyingnobita/naga`). The 2026-11-12 Orca receipt's CLI-named branches kept
+their names after workers ran.
 
 ## Not covered
 
