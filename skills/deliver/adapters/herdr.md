@@ -111,7 +111,7 @@ back to `~/.local/state/flyingnobita-deliver`. Keep state outside checkouts.
 | `task` | Unique `task`, optional `role` (default implementer), `dependencies` naming already registered tasks. Normal delivery planners can run before plan approval; other roles follow the purpose-specific authorization in run-record.md. |
 | `operation-intent` | Unique `operation_id`, `operation` (`worktree-create`, `agent-start`, `worktree-remove`, `workspace-close`), exact `target` object. Record before the corresponding Herdr mutation. Duplicate IDs fail. |
 | `operation-result` | `operation_id`, observed `result` identifiers/evidence. An uncertain operation must be inspected before recording its result or attempting a different operation. |
-| `attempt` | `task`, `resource:{worktree,branch,workspace,pane,agent,session}`. Validates Git identity, isolation, base, dependencies, resource collisions and the saved concurrency limit. Optional `approved_base` is an explicitly approved integration commit. Returns attempt ID and `report_path`. |
+| `attempt` | `task`, `resource:{worktree,branch,workspace,pane,agent,session}`. `resource.session` is the run's `host.session`, never the worker's harness session, which `prompt` carries as `worker_session`. Validates Git identity, isolation, base, dependencies, resource collisions and the saved concurrency limit. Verify or abandon the previous role's task before `attempt` for the next role in the same worktree: its live attempt is a resource collision there. A later attempt on a moved HEAD passes `approved_base`, the explicitly approved integration commit, or the base check refuses it. Returns attempt ID and `report_path`. |
 | `worktree-trust` | `task`, `attempt`, the attempt's planned profile `harness`, `method` (`harness-config`, `native-flag`, `operator-accepted`, `not-required`), `trusted_path` resolving to the attempt worktree, and observed `evidence`. Append-only per checkout and harness; `prompt` and `dispatch-intent` refuse without a matching record. |
 | `profile-bind` | `task`, `attempt`, observed profile, actual harness session and availability/startup evidence. Records immutable per-attempt proof; [profile-proof.md](../references/profile-proof.md) defines authorized overrides. |
 | `prompt` | `task`, `attempt`, `prompt`, `worker_session`, optional `timeout_ms` (1-60000, default 30000). Requires the recorded worktree trust, then validates live pane, workspace, harness session and readiness, saves dispatch intent, then submits once through argv. Waits for `working` or `blocked` acknowledgement, not task completion. When Herdr reports `agent_prompt_stalled` (its fixed 5 s start check), the helper keeps reading the agent until `timeout_ms` and records `observed` once it is working, blocked or past a new completion; it never resends. Any uncertain result remains saved. Never repeat it. `herdr_bin` is a test-boundary override. |
@@ -259,12 +259,16 @@ a later record is reconciliation evidence, never proof of prior intent.
    Capture `result.workspace`, `result.tab`, `result.root_pane` and actual
    worktree path; save the result before continuing. One worktree per concurrent
    ticket. Use the approved dependency frontier, the resolved concurrency limit (default three). Do not move panes.
-2. Register task/attempt with returned identifiers. Journal start intent; inspect
-   that the pane contains an available interactive shell. Establish trust for
-   the exact checkout and planned harness as the section above requires: record
-   it with `worktree-trust` before `agent start` when the harness has a config
-   or flag mechanism, or from the observed acceptance at its first start. Then
-   start `herdr agent start NAME --kind KIND --pane PANE --timeout 30000 -- ARGV...`.
+2. Register the task, then record its attempt with the returned identifiers and
+   the `attempt` row's resource contract before `agent start`: starting a worker
+   before its attempt exists is out of order, because nothing then carries the
+   resource, base and trust the later commands check. Journal start intent;
+   inspect that the pane contains an available interactive shell. Establish
+   trust for the exact checkout and planned harness as the section above
+   requires: record it with `worktree-trust` before `agent start` when the
+   harness has a config or flag mechanism, or from the observed acceptance at
+   its first start. Then start
+   `herdr agent start NAME --kind KIND --pane PANE --timeout 30000 -- ARGV...`.
    Names are unique and at most 32 characters. Save actual harness session ID
    after readiness. agy reports its session only when it receives a prompt, so
    for `--kind agy` first record a `checkpoint` naming the pane and the fixed
