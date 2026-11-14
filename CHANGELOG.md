@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-14, 2026 - 04:47 PM +08 - State in the Herdr adapter that `followup` `evidence` is required for a reported attempt, and that a recorded refusal is the evidence for a refused one (DLV-26).
+
 - Nov-14, 2026 - 04:44 PM +08 - Record at most one refused `report` per attempt, keeping the first refusal message so a second one cannot spend the two-return budget, and refuse `handoff` on a refused attempt so the refusal returns through `followup` to its own worker (DLV-26).
 
 - Nov-14, 2026 - 04:07 PM +08 - Record every refused `report` on the attempt, including a full-length but unknown `test_commit` and a cited test path missing from its commit, so the refusal returns through `followup` instead of a raw Git error; the Herdr adapter names restoring the worktree to the reported commit before that `followup` (DLV-26).
