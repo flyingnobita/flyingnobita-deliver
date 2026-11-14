@@ -325,7 +325,12 @@ a later record is reconciliation evidence, never proof of prior intent.
 7. Run the unchanged pipeline, QA and shipping gates. Before cleanup inspect
    current ownership (including reused/moved panes), stop only owned workers,
    re-check Git and landing, journal removal, then
-   `herdr worktree remove --workspace WORKSPACE` without force. Close only owned
+   `herdr worktree remove --workspace WORKSPACE` without force. It removes the
+   worktree, its registration and the workspace but keeps the branch. Never
+   close the workspace first: the removal then fails with
+   `workspace_not_found` and orphans the worktree; recover with
+   `herdr worktree open --cwd REPO --path PATH --no-focus` and remove the
+   returned workspace (Herdr 0.9.5, 2026-11-14). Close only owned
    remaining resources. Save the observed result and retain reports/evidence.
    Require a new ownership check immediately before every removal.
 
