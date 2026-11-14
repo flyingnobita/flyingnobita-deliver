@@ -862,6 +862,8 @@ def update_task(command, data, record, directory):
     elif command == 'handoff':
         require(attempt['status'] in ('ready', 'dispatch-uncertain', 'observed'),
                 'handoff requires an unreported attempt; after a report use followup')
+        require('report_refusal' not in attempt,
+                'report was refused; return it to its own worker through followup')
         require(not Path(attempt['report_path']).exists(), 'report exists; record it and use followup')
         require(data.get('evidence'), 'handoff evidence required')
         observation = attempt.get('reconciliation', {})
@@ -939,10 +941,11 @@ def update_task(command, data, record, directory):
         except ValueError as error:
             # A refused report goes back to its own worker through followup; record
             # the refusal before this command fails so the attempt stays reusable.
-            task['refusals'] = task.get('refusals', 0) + 1
-            attempt['report_refusal'] = {'message': str(error), 'commit': report['commit'],
-                                         'at': observed_at()}
-            atomic(directory / 'run.json', record)
+            if 'report_refusal' not in attempt:  # one refusal per attempt, so it spends one return
+                task['refusals'] = task.get('refusals', 0) + 1
+                attempt['report_refusal'] = {'message': str(error), 'commit': report['commit'],
+                                             'at': observed_at()}
+                atomic(directory / 'run.json', record)
             raise
         attempt.pop('report_refusal', None)
         path = Path(attempt['report_path'])

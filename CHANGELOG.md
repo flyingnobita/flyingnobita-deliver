@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-14, 2026 - 04:44 PM +08 - Record at most one refused `report` per attempt, keeping the first refusal message so a second one cannot spend the two-return budget, and refuse `handoff` on a refused attempt so the refusal returns through `followup` to its own worker (DLV-26).
+
 - Nov-14, 2026 - 04:07 PM +08 - Record every refused `report` on the attempt, including a full-length but unknown `test_commit` and a cited test path missing from its commit, so the refusal returns through `followup` instead of a raw Git error; the Herdr adapter names restoring the worktree to the reported commit before that `followup` (DLV-26).
 
 - Nov-14, 2026 - 03:40 PM +08 - Record Herdr and Orca worktree behavior from live checks: `deliver-implement` now passes `--branch` on Orca so a ticket's branch is exactly `<kaneo-key>-<slug>` instead of `<git-user>/<name>`; both hosts' removal keeps the branch for `git branch -d`; and closing a Herdr workspace first orphans the worktree, recoverable with `herdr worktree open`. Receipts are in `docs/quick-start-receipts/2026-11-14-herdr-worktree-cleanup.md` and `2026-11-14-orca-worktree-branch.md`.

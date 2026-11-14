@@ -1444,6 +1444,26 @@ class RuntimeTests(unittest.TestCase):
             self.assertIn('two refused reports per task',
                           self.call('followup', {**payload, 'attempt': attempt['id']}, ok=False))
 
+    def test_one_refusal_per_attempt_keeps_the_first_and_spends_one_return(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            self.assertIn('full commit hashes', self.call('report', {
+                **payload, 'report': self.refused_report(report, payload['attempt'])}, ok=False))
+            unknown = json.loads(json.dumps(report))
+            unknown['test_evidence'][0]['test_commit'] = '0' * 40
+            self.assertIn('test provenance commit mismatch',
+                          self.call('report', {**payload, 'report': unknown}, ok=False))
+            record = self.call('show', payload)
+            attempt = record['tasks']['build']['attempts'][0]
+            self.assertEqual(record['tasks']['build']['refusals'], 1)
+            self.assertEqual(attempt['report_refusal']['message'],
+                             'test provenance requires full commit hashes')
+            record = self.call('followup', payload)
+            old, new = record['tasks']['build']['attempts']
+            self.assertEqual((old['status'], old['followup_evidence'], new['status']),
+                             ('continued', 'test provenance requires full commit hashes', 'ready'))
+            self.assertIn('stale attempt', self.call('followup', payload, ok=False))
+
     def worker_fixture(self, root, task='build', branch='build', pane='w2:p1'):
         repo, run = self.setup_run(root)
         self.call('task', {**run, 'task': task})
@@ -1514,6 +1534,19 @@ class RuntimeTests(unittest.TestCase):
                 'test_evidence': [], 'test_reason': 'No source or test changes',
                 'observed_profile': FIXTURE_PROFILE}})
             self.call('handoff', handoff, ok=False)
+
+    def test_handoff_refuses_a_refused_attempt_and_returns_it_through_followup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            self.assertIn('full commit hashes', self.call('report', {
+                **payload, 'report': self.refused_report(report, payload['attempt'])}, ok=False))
+            self.assertIn('followup', self.call('handoff', {
+                **payload, 'evidence': 'agy quota exhausted; move the refused work to another worker'},
+                ok=False))
+            record = self.call('followup', payload)
+            old, new = record['tasks']['build']['attempts']
+            self.assertEqual((old['status'], 'handoff' in old, new['status'], new['previous_attempt']),
+                             ('continued', False, 'ready', old['id']))
 
     def test_abandon_needs_a_user_decision_and_releases_the_worktree(self):
         with tempfile.TemporaryDirectory() as directory:
