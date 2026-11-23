@@ -199,7 +199,7 @@ class RuntimeTests(unittest.TestCase):
             output = artifact.with_name('check.txt')
             packet = {'target': 'fixture CLI', 'change': 'plan its behavior',
                       'constraints': 'read-only; no publishing', 'ownership': 'report only',
-                      'acceptance': 'name slices and subprocess seam',
+                      'acceptance': 'name slices and subprocess seam', 'purpose': 'preparation',
                       'profile': record['profiles']['planner'], 'report_path': str(artifact),
                       'verification_commands': [['git', 'diff', '--check']]}
             compiled = self.call('orca-task', {'packet': packet})
@@ -261,7 +261,7 @@ class RuntimeTests(unittest.TestCase):
             output.write_text('Independent checks passed; review finding still open.')
             packet = {'target': 'fixed point and current branch', 'change': 'review both axes',
                       'constraints': 'read-only', 'ownership': 'report only', 'acceptance': 'all findings cited',
-                      'profile': profile, 'report_path': str(artifact),
+                      'purpose': 'findings', 'profile': profile, 'report_path': str(artifact),
                       'verification_commands': [['git', 'diff', '--check']]}
             intent = {**run, 'job': 'review', 'request_id': 'req', 'native_run': 'native',
                       'native_task': 'task', 'role': 'reviewer', 'worktree': str(worktree),
@@ -471,7 +471,7 @@ class RuntimeTests(unittest.TestCase):
     def git(self, repo, *args):
         return subprocess.check_output(['git', '-C', str(repo), *args], text=True).strip()
 
-    def setup_run(self, root):
+    def setup_run(self, root, **overrides):
         repo = root / 'repo'
         repo.mkdir()
         self.git(repo, 'init', '-q', '-b', 'main')
@@ -482,7 +482,7 @@ class RuntimeTests(unittest.TestCase):
                    'approved': {'brief': 'fixture', 'plan': 'fixture', 'seams': ['CLI']},
                    'profiles': FIXTURE_PROFILES,
                    'base': 'main', 'branch': 'main'}
-        run = self.call('create', payload)
+        run = self.call('create', {**payload, **overrides})
         return repo, {'state_root': str(root / 'state'), 'run_id': run['run_id']}
 
     def bind_fixture_profile(self, payload, profile=None, session='fixture-worker'):
@@ -1233,7 +1233,8 @@ class RuntimeTests(unittest.TestCase):
                 'target': 'the ticket worktree at its reported commit',
                 'change': 'add details.md', 'constraints': 'local only; no publishing',
                 'ownership': 'report only', 'acceptance': 'details.md holds the reported text',
-                'profile': dict(profile), 'report_path': str(artifact),
+                'purpose': 'implementation', 'profile': dict(profile),
+                'report_path': str(artifact),
                 'verification_commands': [['git', 'diff', '--check']]}
         self.call('orca-intent', intent)
         self.call('orca-receipt', {**intent, 'dispatch': 'dispatch', 'evidence': 'native receipt'})
@@ -1458,6 +1459,543 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(record['host']['pane'], 'w3:p1')
             self.assertEqual(record['stage'], 'review')
             self.call('checkpoint', {**data, 'host': {**data['host'], 'session': 'another'}}, ok=False)
+
+    def stage_task(self, root, repo, run, task, pane, purpose=None, role='implementer'):
+        """Register and dispatch one task in its own worktree; returns the task/attempt payload."""
+        data = {**run, 'task': task, 'role': role}
+        if purpose:
+            data['purpose'] = purpose
+        self.call('task', data)
+        return self.attempt_task(root, repo, run, task, pane)
+
+    def registering_task(self, run, task, purpose=None, role='implementer'):
+        """Register one task and return its data payload, without an attempt."""
+        data = {**run, 'task': task, 'role': role}
+        if purpose:
+            data['purpose'] = purpose
+        self.call('task', data)
+        return data
+
+    def attempt_task(self, root, repo, run, task, pane, dispatch=True):
+        """Bind a worktree and attempt for a registered task; dispatch unless told otherwise."""
+        worktree, branch = root / ('wt-' + task), 'b-' + task
+        self.git(repo, 'worktree', 'add', '-q', '-b', branch, str(worktree), 'main')
+        resource = {'worktree': str(worktree), 'branch': branch, 'workspace': pane.split(':')[0],
+                    'pane': pane, 'agent': 'agent-' + task, 'session': 'fixture'}
+        attempt = self.call('attempt', {**run, 'task': task,
+                                        'resource': resource})['tasks'][task]['attempts'][-1]
+        payload = {**run, 'task': task, 'attempt': attempt['id']}
+        self.trust_attempt(payload)
+        if dispatch:
+            self.call('dispatch-intent', {**payload, 'prompt': 'work on ' + task})
+        return payload
+
+    def implement_run(self, root):
+        """An implement-purpose run, whose completion needs no delivery acceptance seal."""
+        repo, existing = self.setup_run(root)
+        record = self.call('create', {'state_root': str(root / 'state'), 'repo': str(repo),
+                                      'host': self.call('show', existing)['host'],
+                                      'profiles': FIXTURE_PROFILES, 'base': 'main', 'branch': 'main',
+                                      'purpose': 'implement', 'approved': {'tickets': 'DLV-33'}})
+        return repo, {'state_root': str(root / 'state'), 'run_id': record['run_id']}
+
+    def seal_task(self, payload, verify=True, checks=None):
+        """Bind the profile, report, and independently verify one dispatched attempt."""
+        self.bind_fixture_profile(payload)
+        attempt = self.call('show', payload)['tasks'][payload['task']]['attempts'][-1]
+        report = {'run_id': payload['run_id'], 'task': payload['task'], 'attempt': payload['attempt'],
+                  'commit': attempt['base'], 'checks': ['fixture'], 'questions': [],
+                  'test_scope': 'none', 'test_evidence': [], 'test_reason': 'No source or test changes',
+                  'observed_profile': FIXTURE_PROFILE}
+        # Synthetic worker: the explicit asynchronous contract replaces a live settlement probe.
+        self.call('report', {**payload, 'report': report,
+                             'asynchronous_contract': 'fixture: the synthetic worker settled'})
+        if not verify:
+            return report
+        return self.call('verify', {**payload, 'commit': report['commit'], 'host': 'fixture',
+                                    'evidence': checks if checks is not None
+                                    else 'independent fixture check'})
+
+    def seal_acceptance(self, payload):
+        """Seal an acceptance task with the structured green checks its gate requires."""
+        attempt = self.call('show', payload)['tasks'][payload['task']]['attempts'][-1]
+        return self.seal_task(payload, checks=[{'command': ['python3', 'tests/test-deliver-runtime.py'],
+                                               'exit_code': 0, 'commit': attempt['base']}])
+
+    def test_a_settled_report_refuses_a_stage_transition_until_it_is_processed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run = self.setup_run(root, settled_bound_s=1)
+            payload = self.stage_task(root, repo, run, 'build', pane='w2:p1')
+            report = self.seal_task(payload, verify=False)
+            checkpoint = {**run, 'stage': 'build', 'evidence': 'build checkpoint',
+                          'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'}}
+            self.call('checkpoint', checkpoint)  # a settlement younger than the bound is not a stall
+            time.sleep(2.1)
+            error = self.call('checkpoint', checkpoint, ok=False)
+            self.assertIn('settled attempt needs processing', error)
+            self.assertIn(f'build/{payload["attempt"]} reported', error)
+            self.assertIn('s)', error)
+            self.call('checkpoint', {**checkpoint, 'acknowledgement': '   '}, ok=False)
+            record = self.call('checkpoint', {**checkpoint,
+                                              'acknowledgement': 'the user is answering the review question'})
+            acknowledgement = record['evidence'][-1]['settled_acknowledgement']
+            self.assertEqual(acknowledgement['reason'], 'the user is answering the review question')
+            self.assertEqual((acknowledgement['settled'][0]['task'],
+                              acknowledgement['settled'][0]['attempt'],
+                              acknowledgement['settled'][0]['status']),
+                             ('build', payload['attempt'], 'reported'))
+            self.assertGreaterEqual(acknowledgement['settled'][0]['age_s'], 2)
+            # The attempt a command works on is excluded: verifying the settled report stays allowed.
+            self.call('verify', {**payload, 'commit': report['commit'], 'host': 'fixture',
+                                 'evidence': 'independent fixture check'})
+            self.call('checkpoint', checkpoint)
+
+    def test_the_settled_bound_is_a_durable_run_policy_and_unsettled_work_is_legitimate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, settled_default = self.setup_run(root)
+            self.assertEqual(self.call('show', settled_default)['settled_bound_s'], 300)
+            base = {'state_root': str(root / 'state'), 'repo': str(repo), 'base': 'main',
+                    'branch': 'main', 'profiles': {},
+                    'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'},
+                    'approved': {'brief': 'f', 'plan': 'p', 'seams': ['CLI']}}
+            for invalid in (0, 86401, 1.5, '30', True):
+                self.call('create', {**base, 'settled_bound_s': invalid}, ok=False)
+            run = {'state_root': str(root / 'state'),
+                   'run_id': self.call('create', {**base, 'settled_bound_s': 1,
+                                                  'profiles': FIXTURE_PROFILES})['run_id']}
+            payload = self.stage_task(root, repo, run, 'build', pane='w2:p1')
+            checkpoint = {**run, 'stage': 'build', 'evidence': 'dispatch checkpoint',
+                          'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'}}
+            self.call('checkpoint', checkpoint)  # a fresh dispatch intent is not a settled attempt
+            time.sleep(2.1)
+            error = self.call('checkpoint', checkpoint, ok=False)
+            self.assertIn(f'build/{payload["attempt"]} dispatch-uncertain', error)
+            self.call('abandon', {**payload, 'evidence': 'worker never started',
+                                  'user_decision': 'user dropped this slice'})
+            self.call('checkpoint', checkpoint)
+
+    def test_shipping_needs_a_reviewer_seal_with_green_checks_for_the_final_tree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run = self.setup_run(root)
+            self.seal_task(self.stage_task(root, repo, run, 'build', pane='w2:p1'))
+            self.seal_task(self.stage_task(root, repo, run, 'qa-final', pane='w3:p1',
+                                           purpose='preparation', role='qa'))
+            findings = self.seal_task(self.stage_task(root, repo, run, 'review-findings', pane='w4:p1',
+                                                      purpose='findings', role='reviewer'))
+            self.assertEqual(findings['tasks']['review-findings']['seal']['purpose'], 'findings')
+            ship = {**run, 'stage': 'ship', 'evidence': 'ship checkpoint',
+                    'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'}}
+            # A preparation seal, a findings seal and a QA seal are not a clean final review.
+            self.assertIn('no accepted reviewer seal covers this tree',
+                          self.call('checkpoint', ship, ok=False))
+            review = self.stage_task(root, repo, run, 'review-final', pane='w5:p1',
+                                     purpose='acceptance', role='reviewer')
+            self.assertIn('reviewer or qa', self.call('task', {**run, 'task': 'bad-acceptance',
+                                                               'purpose': 'acceptance'}, ok=False))
+            self.seal_task(review, verify=False)
+            commit = self.call('show', review)['tasks']['review-final']['attempts'][-1]['base']
+            verify = {**review, 'commit': commit, 'host': 'fixture'}
+            self.assertIn('successful independent checks',
+                          self.call('verify', {**verify, 'evidence': 'not structured'}, ok=False))
+            for checks in ([{'command': ['fixture'], 'exit_code': 1, 'commit': commit}],
+                           [{'command': ['fixture'], 'exit_code': 0, 'commit': 'other'}],
+                           []):
+                self.call('verify', {**verify, 'evidence': checks}, ok=False)
+            checks = [{'command': ['python3', 'tests/test-deliver-runtime.py'], 'exit_code': 0,
+                       'commit': commit}]
+            # The sealed commit is what the reviewer checked, so a dirty checkout cannot seal it.
+            (root / 'wt-review-final' / 'dirty.txt').write_text('uncommitted review edit')
+            self.assertIn('uncommitted work',
+                          self.call('verify', {**verify, 'evidence': checks}, ok=False))
+            (root / 'wt-review-final' / 'dirty.txt').unlink()
+            self.call('verify', {**verify, 'evidence': checks})
+            self.call('checkpoint', ship)
+            self.call('approve', {**run, 'approved': {'brief': 'fixture', 'plan': 'fixture',
+                                                      'seams': ['CLI'], 'qa': 'fixture host'},
+                                  'evidence': 'user selected the QA target at the grilling stop'})
+            # The selected QA gate needs its own acceptance seal; the review does not stand in for it.
+            self.assertIn('QA was selected', self.call('checkpoint', {**ship, 'stage': 'complete'}, ok=False))
+            self.seal_acceptance(self.stage_task(root, repo, run, 'qa-accept', pane='w6:p1',
+                                                 purpose='acceptance', role='qa'))
+            self.call('checkpoint', {**ship, 'stage': 'complete'})
+            # An accepted tree stops covering the run once source commits move it.
+            (repo / 'later.txt').write_text('later commit')
+            self.git(repo, 'add', 'later.txt')
+            self.git(repo, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+                     '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'later work')
+            self.assertIn('no accepted reviewer seal covers this tree',
+                          self.call('checkpoint', {**ship, 'stage': 'complete'}, ok=False))
+
+    def test_supersession_needs_a_later_verified_replacement_covering_the_old_task(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run = self.setup_run(root)
+            self.stage_task(root, repo, run, 'old', pane='w2:p1')
+            self.registering_task(run, 'running')
+            self.call('task', {**run, 'task': 'replacement'})
+            self.call('task', {**run, 'task': 'unrelated'})
+            self.assertIn('coverage of this task', self.call('supersede', {
+                **run, 'task': 'old', 'replacement': 'replacement'}, ok=False))
+            self.assertIn('coverage of this task', self.call('supersede', {
+                **run, 'task': 'old', 'replacement': 'replacement',
+                'coverage': {'task': 'unrelated', 'evidence': 'the other task covers it'}}, ok=False))
+            self.assertIn('later task', self.call('supersede', {
+                **run, 'task': 'replacement', 'replacement': 'old',
+                'coverage': {'task': 'replacement', 'evidence': 'earlier work'}}, ok=False))
+            record = self.call('supersede', {
+                **run, 'task': 'old', 'replacement': 'replacement',
+                'coverage': {'task': 'old', 'evidence': 'the replacement rebuilds the same seam'}})
+            self.assertEqual(record['tasks']['old']['superseded']['by'], 'replacement')
+            self.assertEqual(record['tasks']['replacement']['supersedes'], ['old'])
+            ship = {**run, 'stage': 'ship', 'evidence': 'ship checkpoint',
+                    'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'}}
+            error = self.call('checkpoint', ship, ok=False)
+            self.assertIn('old (superseded)', error)
+            self.assertIn('replacement (no attempt)', error)
+            self.seal_task(self.attempt_task(root, repo, run, 'replacement', pane='w3:p1'))
+            # A replacement that is abandoned, not verified, leaves the old task unresolved.
+            self.call('task', {**run, 'task': 'ghost'})
+            self.call('task', {**run, 'task': 'gone'})
+            self.call('supersede', {**run, 'task': 'ghost', 'replacement': 'gone',
+                                    'coverage': {'task': 'ghost', 'evidence': 'gone replaces it'}})
+            self.call('abandon', {**run, 'task': 'gone', 'evidence': 'dropped with the slice',
+                                  'user_decision': 'user dropped the slice'})
+            self.assertIn('ghost (no attempt)', self.call('checkpoint', ship, ok=False))
+            # A running attempt is reconciled or handed off, never waived by supersession.
+            running = self.attempt_task(root, repo, run, 'running', pane='w2:p1', dispatch=False)
+            self.call('prompt', {**running, 'prompt': 'work', 'worker_session': 'worker',
+                                 'herdr_bin': str(self.fake_herdr(root)), 'timeout_ms': 100})
+            self.assertIn('running attempt', self.call('supersede', {
+                **run, 'task': 'running', 'replacement': 'replacement',
+                'coverage': {'task': 'running', 'evidence': 'replacement covers it'}}, ok=False))
+
+    def test_continuations_bind_a_task_attempt_or_gate_and_a_handoff_stays_pending(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run = self.implement_run(root)
+            complete = {**run, 'stage': 'complete', 'evidence': 'run complete',
+                        'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'}}
+            self.call('checkpoint', complete)  # nothing outstanding: an implement run may complete
+            payload = self.stage_task(root, repo, run, 'build', pane='w2:p1')
+            worker = {**run, 'continuation_id': 'worker-1', 'kind': 'worker', 'owner': 'fixture',
+                      'task': 'build', 'attempt': payload['attempt'],
+                      'next_observation': 'the build worker report',
+                      'expected_event': 'report registered'}
+            self.assertIn('names its registered task', self.call('continuation-open', {
+                **worker, 'task': 'absent'}, ok=False))
+            self.assertIn("names that task's attempt", self.call('continuation-open', {
+                **worker, 'attempt': 'absent'}, ok=False))
+            self.assertIn('names its gate', self.call('continuation-open', {
+                **worker, 'continuation_id': 'hosted-0', 'kind': 'hosted'}, ok=False))
+            self.call('continuation-open', worker)
+            self.call('continuation-open', {**worker, 'continuation_id': 'hosted-1', 'kind': 'hosted',
+                                            'gate': 'ci:workflow_run'})
+            self.seal_task(payload)  # the worker settles while its continuation stays open
+            self.assertIn('pending continuations block the complete checkpoint: worker-1, hosted-1',
+                          self.call('checkpoint', complete, ok=False))
+            handoff = {**run, 'continuation_id': 'worker-1', 'evidence': 'worker still running',
+                       'acknowledgement': 'continuation-handoff',
+                       'limitation': 'the runtime has no native wake-up channel',
+                       'handoff': {'owner': 'next session',
+                                   'next_observation': 'read the build worker report'}}
+            self.assertIn('handoff', self.call('continuation-ack', {
+                **handoff, 'handoff': {'owner': 'next session', 'next_observation': ''}}, ok=False))
+            tokens = self.call('continuation-ack', handoff)['continuations']
+            self.assertEqual((tokens['worker-1']['status'], tokens['worker-1']['handoff']['owner']),
+                             ('pending', 'next session'))
+            # A handoff proves no settlement: complete still refuses until the event is observed.
+            self.assertIn('pending continuations', self.call('checkpoint', complete, ok=False))
+            self.call('continuation-ack', {**run, 'continuation_id': 'worker-1',
+                                           'acknowledgement': 'native-wake-up',
+                                           'evidence': 'the report was registered', 'observed': True})
+            self.call('continuation-ack', {**run, 'continuation_id': 'hosted-1',
+                                           'acknowledgement': 'native-wake-up',
+                                           'evidence': 'workflow_run completed', 'observed': True})
+            self.call('continuation-ack', {**run, 'continuation_id': 'hosted-1',
+                                           'acknowledgement': 'native-wake-up',
+                                           'evidence': 'again', 'observed': True}, ok=False)
+            tokens = self.call('checkpoint', complete)['continuations']
+            self.assertEqual({key: token['status'] for key, token in tokens.items()},
+                             {'worker-1': 'acknowledged', 'hosted-1': 'acknowledged'})
+
+    def test_unresolved_orca_jobs_block_complete_and_an_observed_rejection_closes_them(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, prior = self.setup_run(root)
+            record = self.call('create', {'state_root': str(root / 'state'), 'repo': str(repo),
+                                          'host': {'host': 'orca', 'session': 'runtime', 'pane': 'caller'},
+                                          'orca_contract': 1, 'profiles': {}, 'base': 'main',
+                                          'branch': 'main', 'purpose': 'implement',
+                                          'approved': {'tickets': 'DLV-33'}})
+            run = {**prior, 'run_id': record['run_id']}
+            complete = {**run, 'stage': 'complete', 'evidence': 'run complete',
+                        'host': {'host': 'orca', 'session': 'runtime', 'pane': 'caller'}}
+            worktree = root / 'worker'
+            self.git(repo, 'worktree', 'add', '-q', '-b', 'build', str(worktree), 'main')
+
+            def intent(job):
+                return {**run, 'job': job, 'request_id': job + '-req', 'native_run': 'native',
+                        'native_task': job + '-task', 'role': 'implementer',
+                        'worktree': str(worktree), 'branch': 'build', 'base': record['baseline']}
+            self.call('orca-intent', intent('first'))
+            self.assertIn('first (intent)', self.call('checkpoint', complete, ok=False))
+            # A recorded, observed rejection is a resolution; it does not leave the job open.
+            self.call('orca-rejected', {**intent('first'), 'request_state': 'completed',
+                                        'task_state': 'ready', 'dispatch_absent': True,
+                                        'evidence': 'task refused before dispatch'})
+            self.call('orca-intent', intent('second'))
+            self.call('orca-receipt', {**intent('second'), 'dispatch': 'dispatch-2',
+                                       'evidence': 'native receipt'})
+            error = self.call('checkpoint', complete, ok=False)
+            self.assertIn('second (dispatched)', error)
+            self.assertNotIn('first', error)
+            self.call('orca-report', {**intent('second'), 'dispatch': 'dispatch-2',
+                                      'outcome': 'succeeded', 'commit': record['baseline'],
+                                      'checks': ['fixture'], 'questions': [], 'evidence': 'native done'})
+            self.assertIn('second (unverified report)', self.call('checkpoint', complete, ok=False))
+            self.call('orca-verify', {**run, 'job': 'second', 'dispatch': 'dispatch-2',
+                                      'commit': record['baseline'], 'host': 'runtime',
+                                      'evidence': 'independent suite on the reported commit'})
+            self.call('checkpoint', complete)
+
+    def test_an_aged_unregistered_report_file_is_a_stall(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run = self.setup_run(root, settled_bound_s=1)
+            checkpoint = {**run, 'stage': 'build', 'evidence': 'build checkpoint',
+                          'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'}}
+            # The original failure: a report file written but never registered or verified.
+            payload = self.stage_task(root, repo, run, 'build', pane='w2:p1')
+            attempt = self.call('show', run)['tasks']['build']['attempts'][-1]
+            Path(attempt['report_path']).write_text(json.dumps({'unregistered': True}))
+            old = time.time() - 30
+            os.utime(attempt['report_path'], (old, old))
+            error = self.call('checkpoint', checkpoint, ok=False)
+            self.assertIn('build/' + attempt['id'], error)
+            self.assertIn('dispatch-uncertain', error)
+            self.assertIn('30s', error)
+            Path(attempt['report_path']).unlink()
+            self.call('checkpoint', checkpoint)  # no report file: the attempt is not settled
+            # Two aged registered reports: drain one directly instead of acknowledging the other.
+            self.seal_task(payload, verify=False)
+            other = self.stage_task(root, repo, run, 'second', pane='w3:p1')
+            self.seal_task(other, verify=False)
+            time.sleep(2.1)
+            error = self.call('checkpoint', checkpoint, ok=False)
+            self.assertIn('build/' + attempt['id'], error)
+            self.assertIn('second/' + other['attempt'], error)
+            commit = self.call('show', payload)['tasks']['build']['attempts'][-1]['base']
+            self.call('verify', {**payload, 'commit': commit, 'host': 'fixture',
+                                 'evidence': 'independent fixture check'})
+            self.call('followup', {**other, 'evidence': 'the plan answers the second report'})
+            self.call('checkpoint', checkpoint)
+
+    def test_a_running_worker_without_a_report_is_never_a_stall(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run = self.setup_run(root, settled_bound_s=1)
+            self.registering_task(run, 'qa')
+            payload = self.attempt_task(root, repo, run, 'qa', pane='w2:p1', dispatch=False)
+            self.call('prompt', {**payload, 'prompt': 'run the QA suite', 'worker_session': 'worker',
+                                 'herdr_bin': str(self.fake_herdr(root)), 'timeout_ms': 100})
+            self.assertEqual(self.call('show', run)['tasks']['qa']['attempts'][-1]['status'], 'observed')
+            checkpoint = {**run, 'stage': 'build', 'evidence': 'qa still running',
+                          'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'}}
+            time.sleep(2.1)
+            self.call('checkpoint', checkpoint)
+            # An older record without reliable timestamps stays resumable rather than guessed at.
+            state = Path(run['state_root']) / run['run_id'] / 'run.json'
+            record = json.loads(state.read_text())
+            attempt = record['tasks']['qa']['attempts'][-1]
+            attempt['status'] = 'reported'
+            Path(attempt['report_path']).write_text('{}')
+            attempt.pop('reported_at', None)
+            Path(attempt['report_path']).unlink()
+            state.write_text(json.dumps(record))
+            self.call('checkpoint', {**checkpoint, 'evidence': 'legacy record without a timestamp'})
+
+    def test_an_orca_reviewer_packet_can_seal_the_final_tree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, prior = self.setup_run(root)
+            profile = {'harness': 'antigravity', 'model': 'chosen', 'effort': 'medium'}
+            record = self.call('create', {'state_root': str(root / 'state'), 'repo': str(repo),
+                                          'host': {'host': 'orca', 'session': 'runtime',
+                                                   'pane': 'caller'},
+                                          'profiles': {'reviewer': profile,
+                                                       'implementer': profile}, 'base': 'main',
+                                          'branch': 'main',
+                                          'approved': {'brief': 'fixture', 'plan': 'fixture',
+                                                       'seams': ['CLI']}})
+            run = {**prior, 'run_id': record['run_id']}
+            worktree = root / 'worker'
+            self.git(repo, 'worktree', 'add', '-q', '-b', 'review', str(worktree), 'main')
+            artifact = root / 'state' / record['run_id'] / 'review.md'
+            artifact.write_text('Standards: clean. Spec: clean.\n')
+            output = artifact.with_name('independent.txt')
+            output.write_text('independent git diff --check passed\n')
+            packet = {'target': 'the delivered integration tree', 'change': 'review both axes',
+                      'constraints': 'read-only', 'ownership': 'findings artifact only',
+                      'acceptance': 'clean review of the final tree', 'purpose': 'acceptance',
+                      'profile': profile, 'report_path': str(artifact),
+                      'verification_commands': [['git', 'diff', '--check']]}
+            intent = {**run, 'job': 'review', 'request_id': 'req', 'native_run': 'native',
+                      'native_task': 'task', 'role': 'reviewer', 'worktree': str(worktree),
+                      'branch': 'review', 'base': record['baseline'], 'packet': packet}
+            self.assertIn('names the reviewer or qa role', self.call('orca-intent', {
+                **intent, 'role': 'implementer'}, ok=False))
+            self.call('orca-intent', intent)
+            self.call('orca-receipt', {**intent, 'dispatch': 'dispatch', 'evidence': 'native receipt'})
+            self.call('orca-report', {**intent, 'dispatch': 'dispatch', 'outcome': 'succeeded',
+                                      'commit': record['baseline'], 'checks': ['reviewed'],
+                                      'questions': [], 'artifact_path': str(artifact),
+                                      'evidence': 'native worker_done'})
+            gate = {**run, 'job': 'review', 'dispatch': 'dispatch', 'commit': record['baseline'],
+                    'host': 'runtime', 'evidence': 'independent inspection'}
+            self.call('orca-verify', {**gate, 'verification': {
+                'stage': 'reviewer', 'verdict': 'clean', 'must_fix': 0, 'checks': [{
+                    'argv': ['git', 'diff', '--check'], 'exit_code': 0,
+                    'commit': record['baseline'], 'output_path': str(output)}]}})
+            seal = self.call('show', run)['orca_jobs']['review']['seal']
+            self.assertEqual((seal['purpose'], seal['role']), ('acceptance', 'reviewer'))
+            self.assertEqual(seal['checks'][0]['command'], ['git', 'diff', '--check'])
+            self.call('checkpoint', {**run, 'stage': 'ship', 'evidence': 'reviewer seal on the tree',
+                                     'host': {'host': 'orca', 'session': 'runtime', 'pane': 'caller'}})
+
+    def test_an_orca_contract_one_record_keeps_the_older_gates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, prior = self.setup_run(root)
+            record = self.call('create', {'state_root': str(root / 'state'), 'repo': str(repo),
+                                          'host': {'host': 'orca', 'session': 'runtime',
+                                                   'pane': 'caller'}, 'orca_contract': 1,
+                                          'profiles': {}, 'base': 'main', 'branch': 'main',
+                                          'purpose': 'delivery'})
+            run = {**prior, 'run_id': record['run_id']}
+            self.assertEqual(record['gate_contract'], 2)
+            self.call('checkpoint', {**run, 'stage': 'ship', 'evidence': 'contract-1 recovery run',
+                                     'host': {'host': 'orca', 'session': 'runtime', 'pane': 'caller'}})
+
+    def test_a_legacy_orca_packet_keeps_its_digest_and_an_intent_needs_a_purpose(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, existing = self.setup_run(root)
+            profile = {'harness': 'codex', 'model': 'gpt-6.1-sol', 'effort': 'medium'}
+            record = self.call('create', {'state_root': str(root / 'state'), 'repo': str(repo),
+                                          'host': {'host': 'orca', 'session': 'runtime',
+                                                   'pane': 'caller'},
+                                          'profiles': {'implementer': profile}, 'base': 'main',
+                                          'branch': 'main',
+                                          'approved': {'brief': 'fixture', 'plan': 'fixture',
+                                                       'seams': ['CLI']}})
+            run = {'state_root': str(root / 'state'), 'run_id': record['run_id']}
+            worktree = root / 'worker'
+            self.git(repo, 'worktree', 'add', '-q', '-b', 'build', str(worktree), 'main')
+            artifact = root / 'state' / record['run_id'] / 'build.md'
+            packet = {'target': 'the ticket worktree', 'change': 'add details.md',
+                      'constraints': 'local only', 'ownership': 'report only',
+                      'acceptance': 'details.md holds the reported text',
+                      'profile': profile,
+                      'report_path': str(artifact),
+                      'verification_commands': [['git', 'diff', '--check']]}
+            legacy = self.call('orca-task', {'packet': packet})
+            # A packet written before the typed purpose keeps its exact spec and digest.
+            lines = [field.capitalize() + ': ' + packet[field].strip()
+                     for field in ('target', 'change', 'constraints', 'ownership', 'acceptance')]
+            lines += ['Profile: ' + json.dumps(packet['profile'], sort_keys=True),
+                      'Report: ' + packet['report_path'],
+                      'Independent verification commands: ' + json.dumps(packet['verification_commands'])]
+            expected = '\n\n'.join(lines)
+            self.assertEqual(legacy['spec'], expected)
+            self.assertNotIn('Purpose:', legacy['spec'])
+            self.assertEqual(legacy['sha256'], hashlib.sha256(expected.encode()).hexdigest())
+            self.call('orca-task', {'packet': {**packet, 'purpose': 'bogus'}}, ok=False)
+            intent = {**run, 'job': 'build', 'request_id': 'req', 'native_run': 'native',
+                      'native_task': 'task', 'role': 'implementer', 'worktree': str(worktree),
+                      'branch': 'build', 'base': record['baseline'], 'packet': packet}
+            self.assertIn('typed packet purpose', self.call('orca-intent', intent, ok=False))
+            self.call('orca-intent', {**intent, 'packet': {**packet, 'purpose': 'implementation'}})
+
+    def test_an_observed_manual_settlement_acknowledges_a_continuation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run = self.implement_run(root)
+            payload = self.stage_task(root, repo, run, 'build', pane='w2:p1')
+            self.call('continuation-open', {**run, 'continuation_id': 'worker-1', 'kind': 'worker',
+                                            'owner': 'fixture', 'task': 'build',
+                                            'attempt': payload['attempt'],
+                                            'next_observation': 'the build worker report',
+                                            'expected_event': 'report registered'})
+            ack = {**run, 'continuation_id': 'worker-1', 'acknowledgement': 'observed-settlement',
+                   'evidence': 'the report file appeared and was registered', 'observed': True}
+            # A worker token waits for its own attempt to be reported or otherwise processed.
+            self.assertIn('has not settled', self.call(
+                'continuation-ack', {**ack, 'acknowledgement': 'native-wake-up'}, ok=False))
+            self.assertIn('has not settled', self.call('continuation-ack', ack, ok=False))
+            self.seal_task(payload)
+            self.assertIn('observed event', self.call('continuation-ack', {
+                **ack, 'observed': False}, ok=False))
+            token = self.call('continuation-ack', ack)['continuations']['worker-1']
+            self.assertEqual((token['status'], token['claim']), ('acknowledged', 'observed-settlement'))
+            self.assertEqual(token['settlement']['evidence'],
+                             'the report file appeared and was registered')
+            self.assertNotIn('wake_up', token)
+            self.call('checkpoint', {**run, 'stage': 'complete', 'evidence': 'run complete',
+                                     'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'}})
+
+    def test_validate_report_refuses_a_superseded_task(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run = self.setup_run(root)
+            payload = self.stage_task(root, repo, run, 'old', pane='w2:p1')
+            self.bind_fixture_profile(payload)
+            attempt = self.call('show', payload)['tasks']['old']['attempts'][-1]
+            report = {'run_id': run['run_id'], 'task': 'old', 'attempt': payload['attempt'],
+                      'commit': attempt['base'], 'checks': ['fixture'], 'questions': [],
+                      'test_scope': 'none', 'test_evidence': [],
+                      'test_reason': 'No source or test changes', 'observed_profile': FIXTURE_PROFILE}
+            self.call('validate-report', {**payload, 'report': report})  # the preflight still passes
+            self.registering_task(run, 'replacement')
+            self.call('supersede', {**run, 'task': 'old', 'replacement': 'replacement',
+                                    'coverage': {'task': 'old',
+                                                 'evidence': 'replacement rebuilds the seam'}})
+            self.assertIn('task superseded',
+                          self.call('validate-report', {**payload, 'report': report}, ok=False))
+
+    def test_the_final_tree_never_falls_back_to_a_checkout_head(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, existing = self.setup_run(root)
+            record = self.call('create', {'state_root': str(root / 'state'), 'repo': str(repo),
+                                          'base': 'main', 'branch': 'deliver-unsigned',
+                                          'host': self.call('show', existing)['host'],
+                                          'approved': {'brief': 'fixture', 'plan': 'fixture',
+                                                       'seams': ['CLI']}, 'profiles': {}})
+            run = {'state_root': str(root / 'state'), 'run_id': record['run_id']}
+            ship = {**run, 'stage': 'ship', 'evidence': 'ship checkpoint',
+                    'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'}}
+            self.assertIn('record the approved landing ref', self.call('checkpoint', ship, ok=False))
+            self.call('approve', {**run, 'approved': {'brief': 'fixture', 'plan': 'fixture',
+                                                      'seams': ['CLI'], 'landing_ref': 'main'},
+                                  'evidence': 'user approved landing on the default branch'})
+            # The landing ref resolves the tree; the missing reviewer seal is then the only refusal.
+            self.assertIn('no accepted reviewer seal covers this tree',
+                          self.call('checkpoint', ship, ok=False))
+
+    def test_an_older_record_resumes_without_the_new_acceptance_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, run = self.setup_run(root)
+            state = Path(run['state_root']) / run['run_id'] / 'run.json'
+            record = json.loads(state.read_text())
+            self.assertEqual(record['gate_contract'], 2)
+            record.pop('gate_contract')
+            state.write_text(json.dumps(record))
+            self.call('checkpoint', {**run, 'stage': 'complete', 'evidence': 'older record resumes',
+                                     'host': {'host': 'herdr', 'session': 'fixture', 'pane': 'w1:p1'}})
 
     def test_run_can_record_intended_branch_before_worktree_creation(self):
         with tempfile.TemporaryDirectory() as directory:

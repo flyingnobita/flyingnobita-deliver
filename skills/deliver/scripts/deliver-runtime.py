@@ -55,6 +55,19 @@ PURPOSES = {
     'implement': (('tickets',), ('implementer',)),
 }
 
+# A task's purpose types what its verification proves. Only an acceptance seal
+# carried by the reviewer, or by QA when it was selected, can gate shipping.
+TASK_PURPOSES = ('preparation', 'findings', 'implementation', 'acceptance')
+CLEANUP_OPERATIONS = ('worktree-remove', 'workspace-close', 'worker-release')
+SETTLED_BOUND_S = 300
+GATE_CONTRACT = 2
+# An attempt in one of these states is processed; nothing about it is pending.
+SETTLED_STATUSES = ('verified', 'recovered', 'continued', 'handed-off', 'abandoned', 'superseded')
+
+
+def purpose_of(task):
+    return task.get('purpose', 'implementation')
+
 
 def authorize_role(record, role):
     purpose = record.get('purpose', 'delivery')
@@ -245,7 +258,13 @@ def orca_task(data):
         isinstance(argv, list) and argv and all(isinstance(arg, str) and arg for arg in argv)
         for argv in commands), 'explicit verification command argv required')
     require(packet.get('axis') in (None, 'standards', 'spec'), 'unknown review axis')
+    purpose = packet.get('purpose')
+    require(purpose is None or purpose in TASK_PURPOSES,
+            'task packet purpose must be preparation, findings, implementation or acceptance')
     lines = [field.capitalize() + ': ' + packet[field].strip() for field in fields]
+    if purpose:
+        # Only a typed packet adds this line, so a legacy packet keeps its original digest.
+        lines.append('Purpose: ' + purpose)
     lines += ['Profile: ' + json.dumps(profile, sort_keys=True), 'Report: ' + path,
               'Independent verification commands: ' + json.dumps(commands)]
     if packet.get('axis'):
@@ -359,6 +378,8 @@ def create(data):
         require(baseline == git(repo, 'rev-parse', branch_ref + '^{commit}'),
                 'integration branch does not match approved base')
     limit = concurrency(data.get('concurrency', 3))
+    bound = data.get('settled_bound_s', SETTLED_BOUND_S)
+    require(type(bound) is int and 1 <= bound <= 86400, 'settled bound must be 1-86400 seconds')
     purpose = data.get('purpose', 'delivery')
     require(purpose in PURPOSES, 'unknown run purpose')
     run_id = uuid.uuid4().hex
@@ -369,6 +390,7 @@ def create(data):
               'baseline': baseline, 'base': data['base'], 'branch': data['branch'], 'stage': 'setup',
               'host': data['host'], 'approved': data.get('approved', {}), 'profiles': data['profiles'],
               'tasks': {}, 'evidence': [], 'concurrency': limit, 'purpose': purpose,
+              'settled_bound_s': bound, 'gate_contract': GATE_CONTRACT,
               'test_contract': 1, 'profile_contract': 1}
     if data['host']['host'] == 'orca':
         contract = data.get('orca_contract', 2)
@@ -412,6 +434,10 @@ def orca_evidence(command, data, record, directory):
         if record.get('orca_contract', 1) >= 2:
             packet = data.get('packet')
             compiled = orca_task({'packet': packet})
+            require(gate_contract(record) < GATE_CONTRACT or packet.get('purpose'),
+                    'a new Orca intent needs a typed packet purpose')
+            require(packet.get('purpose') != 'acceptance' or role in ('reviewer', 'qa'),
+                    'an acceptance packet names the reviewer or qa role')
             require(packet['profile'] == record['profiles'].get(role), 'task profile differs from selected role')
             report_path = Path(packet['report_path']).resolve()
             require(report_path.is_relative_to(directory.resolve()) and
@@ -507,6 +533,13 @@ def orca_evidence(command, data, record, directory):
                 'uncommitted work; verify committed result')
         proof = orca_verification(data, record, job, directory) if record.get('orca_contract', 1) >= 2 else None
         job['verified'] = True
+        job['seal'] = {'purpose': (job.get('packet') or {}).get('purpose', 'implementation'),
+                       'role': job['role'], 'commit': data['commit'],
+                       'tree': git(record['repo'], 'rev-parse', data['commit'] + '^{tree}'),
+                       'checks': [{'command': check.get('argv'), 'exit_code': check.get('exit_code'),
+                                   'commit': check.get('commit')}
+                                  for check in ((proof or {}).get('checks') or [])],
+                       'at': observed_at()}
         record['evidence'].append({'job': key, 'dispatch': job['dispatch'], 'commit': data['commit'],
                                    'verification': proof or data['evidence']})
     else:
@@ -664,6 +697,176 @@ def test_results(record, task, attempt, report, data):
     return proof
 
 
+def settled_age(record, attempt):
+    """Seconds since an attempt became an unprocessed settlement, or None.
+
+    A settled report is either registered (`reported_at`) or present as a report
+    file the run never registered, which is the original failure case. An attempt
+    still running has no file and no bound, so a long QA run is never refused.
+    """
+    if attempt.get('status') in SETTLED_STATUSES:
+        return None
+    then = None
+    if attempt.get('status') == 'reported' and attempt.get('reported_at'):
+        try:
+            then = datetime.fromisoformat(attempt['reported_at'])
+        except (TypeError, ValueError):
+            then = None
+    if then is None:
+        try:
+            then = datetime.fromtimestamp(Path(attempt['report_path']).stat().st_mtime, timezone.utc)
+        except (KeyError, OSError, OverflowError, TypeError, ValueError):
+            then = None
+    if then is None and attempt.get('status') == 'dispatch-uncertain':
+        try:
+            then = datetime.fromisoformat(attempt.get('dispatched_at'))
+        except (TypeError, ValueError):
+            then = None
+    if then is None:
+        # No reliable timestamp: an older record stays resumable instead of guessed.
+        return None
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=timezone.utc)
+    return max(0, int((datetime.now(timezone.utc) - then).total_seconds()))
+
+
+def is_aged(record, attempt):
+    age = settled_age(record, attempt)
+    return age is not None and age > record.get('settled_bound_s', SETTLED_BOUND_S)
+
+
+def require_settled_processed(record, data, exclude=None):
+    """Refuse unrelated advancement while an attempt sat settled past the run's bound.
+
+    The command's own attempt is excluded, so draining an aged report or
+    reconciling an uncertain attempt never needs an acknowledgement. An explicit
+    reason is the only override; the caller journals it in the run evidence.
+    """
+    bound = record.get('settled_bound_s', SETTLED_BOUND_S)
+    stale = []
+    for task_id, task in record['tasks'].items():
+        if task.get('superseded'):
+            continue
+        for attempt in task['attempts']:
+            age = settled_age(record, attempt)
+            if age is not None and age > bound and (task_id, attempt['id']) != exclude:
+                stale.append({'task': task_id, 'attempt': attempt['id'],
+                              'status': attempt['status'], 'age_s': age})
+    if not stale:
+        return None
+    named = ', '.join(f"{row['task']}/{row['attempt']} {row['status']} {row['age_s']}s" for row in stale)
+    reason = data.get('acknowledgement')
+    require(isinstance(reason, str) and reason.strip(),
+            f'settled attempt needs processing before this stage transition ({named}); '
+            'verify, follow up or reconcile one of them, or pass an acknowledgement with the reason')
+    return {'reason': reason, 'bound_s': bound, 'settled': stale}
+
+
+def superseding_task(record, task_id):
+    """The verified later task that covers a superseded one, if any."""
+    replacement = (record['tasks'][task_id].get('superseded') or {}).get('by')
+    for _ in range(len(record['tasks'])):
+        if replacement not in record['tasks'] or replacement == task_id:
+            return None
+        target = record['tasks'][replacement]
+        if target['verified']:
+            return target
+        if target.get('abandoned'):
+            return None  # an abandoned replacement covers nothing
+        replacement = (target.get('superseded') or {}).get('by')
+    return None
+
+
+def resolved_task(record, task_id):
+    """Whether a task is closed: verified, abandoned by a user decision, or superseded to verified work."""
+    task = record['tasks'][task_id]
+    return bool(task['verified'] or task.get('abandoned') or superseding_task(record, task_id))
+
+
+def job_state(job):
+    for key, name in (('rejection', 'rejected'), ('verified', 'verified'),
+                      ('report', 'unverified report'), ('dispatch', 'dispatched')):
+        if job.get(key):
+            return name
+    return 'intent'
+
+
+def resolved_job(job):
+    """An Orca job closes on independent verification or an observed, recorded rejection."""
+    return bool(job.get('verified') or job.get('rejection'))
+
+
+def gate_contract(record):
+    """The gate version this record carries; an Orca contract-1 record keeps the older gates."""
+    if (record.get('host') or {}).get('host') == 'orca' and record.get('orca_contract', 2) < 2:
+        return 1
+    return record.get('gate_contract', 1)
+
+
+def acceptance_seals(record):
+    """Verified acceptance seals a task attempt or Orca job actually proved, with structured checks."""
+    seals = [task['seal'] for task in record['tasks'].values()
+             if task['verified'] and acceptance_seal(task.get('seal'))]
+    seals += [job['seal'] for job in record.get('orca_jobs', {}).values()
+              if job['verified'] and acceptance_seal(job.get('seal'))]
+    return seals
+
+
+def acceptance_seal(seal):
+    """Only a reviewer or QA acceptance seal carrying successful independent checks counts."""
+    if not (isinstance(seal, dict) and seal.get('purpose') == 'acceptance'
+            and seal.get('role') in ('reviewer', 'qa')):
+        return False
+    checks = seal.get('checks')
+    return bool(isinstance(checks, list) and checks and all(
+        isinstance(check, dict) and isinstance(check.get('command'), list) and check['command']
+        and check.get('exit_code') == 0 and check.get('commit') == seal.get('commit')
+        for check in checks))
+
+
+def final_tree(record):
+    """The run's integration tree: its branch tip, or the approved landing ref recorded after a merge."""
+    refs = ['refs/heads/' + record['branch']]
+    landing = (record.get('approved') or {}).get('landing_ref')
+    require(landing is None or isinstance(landing, str), 'approved landing ref must be a ref or commit')
+    if landing:
+        refs.append(landing)
+    for ref in refs:
+        if subprocess.run(['git', '-C', record['repo'], 'rev-parse', '--verify', '--quiet', ref],
+                          capture_output=True, check=False).returncode == 0:
+            return git(record['repo'], 'rev-parse', ref + '^{tree}'), ref
+    raise ValueError('the run branch ' + record['branch'] + ' is missing from the run repo; '
+                     'record the approved landing ref as approved.landing_ref before this checkpoint')
+
+
+def require_final_tree(record, stage):
+    """A shipping or complete checkpoint carries no unresolved work and an accepted final tree."""
+    unresolved = []
+    for task_id, task in record['tasks'].items():
+        if resolved_task(record, task_id):
+            continue
+        status = task['attempts'][-1]['status'] if task['attempts'] else 'no attempt'
+        unresolved.append(f'{task_id} ({status})')
+    require(not unresolved, f'unresolved tasks block the {stage} checkpoint: ' + ', '.join(unresolved))
+    jobs = [f'{key} ({job_state(job)})' for key, job in record.get('orca_jobs', {}).items()
+            if not resolved_job(job)]
+    require(not jobs, f'unresolved Orca jobs block the {stage} checkpoint: ' + ', '.join(jobs))
+    pending = [operation_id for operation_id, operation in record.get('operations', {}).items()
+               if operation['status'] != 'observed' and not operation.get('disposition')]
+    require(not pending, 'native operation intents need an observed result or a retained/unavailable '
+            'disposition: ' + ', '.join(pending))
+    if record.get('purpose', 'delivery') == 'delivery' and gate_contract(record) >= GATE_CONTRACT:
+        final, ref = final_tree(record)
+        seals = acceptance_seals(record)
+        require(any(seal['tree'] == final and seal['role'] == 'reviewer' for seal in seals),
+                'no accepted reviewer seal covers this tree; accepted '
+                + (', '.join(sorted(f"{seal['role']}:{seal['tree']}" for seal in seals)) or 'none')
+                + ', final tree ' + final + ' at ' + ref)
+        if (record.get('approved') or {}).get('qa'):
+            require(any(seal['tree'] == final and seal['role'] == 'qa' for seal in seals),
+                    'QA was selected; an accepted final-tree QA seal is required')
+
+
 def canonical_profile(role, value):
     require(isinstance(value, dict), 'complete profile object required')
     require(all(field in value for field in PROFILE_FIELDS),
@@ -785,6 +988,7 @@ def validate_report_command(data):
     require(data['task'] in record['tasks'], 'task not found')
     task = record['tasks'][data['task']]
     require(not task.get('abandoned'), 'task abandoned')
+    require(not task.get('superseded'), 'task superseded')
     require(task['attempts'], 'no task attempt')
     attempt = task['attempts'][-1]
     require(data['attempt'] == attempt['id'], 'stale attempt')
@@ -832,6 +1036,29 @@ def journal_refusal(record, task, data, attempt, report, directory, error):
 def update_task(command, data, record, directory):
     task = record['tasks'][data['task']]
     require(not task.get('abandoned'), 'task abandoned')
+    require(not task.get('superseded'), 'task superseded')
+    if command == 'supersede':
+        require(isinstance(data.get('replacement'), str) and data['replacement'],
+                'supersession needs a replacement task id')
+        replacement = identifier(data['replacement'])
+        require(replacement != data['task'] and replacement in record['tasks'],
+                'supersession needs an existing replacement task')
+        order = list(record['tasks'])
+        require(order.index(replacement) > order.index(data['task']),
+                'the replacement must be a later task')
+        coverage = data.get('coverage')
+        require(isinstance(coverage, dict) and coverage.get('task') == data['task']
+                and isinstance(coverage.get('evidence'), str) and coverage['evidence'].strip(),
+                'supersession needs explicit coverage of this task: {task, evidence}')
+        require(not task['verified'], 'a verified task is never superseded')
+        if task['attempts']:
+            require(task['attempts'][-1]['status'] != 'observed',
+                    'a running attempt is reconciled or handed off before supersession')
+        task['superseded'] = {'by': replacement, 'coverage': coverage, 'at': observed_at()}
+        if task['attempts']:
+            task['attempts'][-1]['status'] = 'superseded'
+        record['tasks'][replacement].setdefault('supersedes', []).append(data['task'])
+        return
     if command == 'abandon':
         require(not task['verified'] and data.get('evidence') and data.get('user_decision'),
                 'abandoning an unverified task requires evidence and the user decision')
@@ -847,7 +1074,8 @@ def update_task(command, data, record, directory):
         require(not task['attempts'] or task['attempts'][-1]['status'] == 'recovered',
                 'existing attempt requires reconciliation')
         active = sum(bool(t['attempts']) and not t['verified'] and not t.get('abandoned') and
-                     t['attempts'][-1]['status'] != 'recovered' for t in record['tasks'].values())
+                     not t.get('superseded') and t['attempts'][-1]['status'] != 'recovered'
+                     for t in record['tasks'].values())
         require(active < record['concurrency'], 'concurrency limit reached')
         resource = data['resource']
         require(resource.get('session') == record['host']['session'], 'resource host mismatch')
@@ -855,7 +1083,7 @@ def update_task(command, data, record, directory):
         require(commit == record['baseline'] or data.get('approved_base') == commit,
                 'worker base differs from approved baseline')
         for other in record['tasks'].values():
-            if other['verified'] or other.get('abandoned'):
+            if other['verified'] or other.get('abandoned') or other.get('superseded'):
                 continue
             for previous in other['attempts']:
                 require(all(previous['resource'][key] != resource[key]
@@ -873,6 +1101,9 @@ def update_task(command, data, record, directory):
     attempt = task['attempts'][-1]
     if command != 'recover':
         require(data['attempt'] == attempt['id'], 'stale attempt')
+    acknowledgement = None
+    if command in ('followup', 'verify') and not is_aged(record, attempt):
+        acknowledgement = require_settled_processed(record, data, (data['task'], attempt['id']))
     if command == 'worktree-trust':
         require(attempt['status'] == 'ready', 'worktree trust precedes dispatch; inspect the existing attempt')
         path = str(Path(attempt['resource']['worktree']).resolve())
@@ -990,6 +1221,8 @@ def update_task(command, data, record, directory):
                                  'base': head, 'status': 'ready', 'previous_attempt': attempt['id'],
                                  'report_path': str(directory / 'reports' /
                                  (data['task'] + '-' + attempt_id + '.json'))})
+        if acknowledgement:
+            record['evidence'].append({'settled_acknowledgement': acknowledgement})
     elif command == 'handoff':
         require(attempt['status'] in ('ready', 'dispatch-uncertain', 'observed'),
                 'handoff requires an unreported attempt; after a report use followup')
@@ -1007,7 +1240,7 @@ def update_task(command, data, record, directory):
                     'session': record['host']['session']}
         check_resource(record, resource)
         for other_id, other in record['tasks'].items():
-            if other_id == data['task'] or other['verified'] or other.get('abandoned'):
+            if other_id == data['task'] or other['verified'] or other.get('abandoned') or other.get('superseded'):
                 continue
             for previous in other['attempts']:
                 require(all(previous['resource'][key] != resource[key] for key in ('pane', 'agent')),
@@ -1117,12 +1350,30 @@ def update_task(command, data, record, directory):
                     'matching effective profile proof required before verification')
         if record.get('profile_contract') == 1:
             report_profile(task, attempt, report)
+        purpose = purpose_of(task)
+        checks = data['evidence']
+        if purpose == 'acceptance' and gate_contract(record) >= GATE_CONTRACT:
+            # An acceptance seal must carry its own successful independent checks for this commit.
+            require(isinstance(checks, list) and checks and all(
+                isinstance(check, dict) and check.get('command') and check.get('exit_code') == 0
+                and check.get('commit') == data['commit'] for check in checks),
+                'an acceptance seal needs successful independent checks: a list of '
+                '{command, exit_code: 0, commit} for this commit')
+            require(not git(attempt['resource']['worktree'], 'status', '--porcelain',
+                            '--untracked-files=all'),
+                    'uncommitted work; seal the reviewed commit, not a dirty checkout')
         task['verified'] = True
         attempt['status'] = 'verified'
         attempt['verified_at'] = observed_at()
+        task['seal'] = {'purpose': purpose, 'role': task['role'], 'commit': data['commit'],
+                        'tree': git(record['repo'], 'rev-parse', data['commit'] + '^{tree}'),
+                        'checks': checks if isinstance(checks, list) else [],
+                        'at': observed_at()}
         record['evidence'].append({'task': data['task'], 'attempt': attempt['id'],
                                    'commit': data['commit'], 'verification': data['evidence'],
-                                   'test_results': proof, 'profile_proof': profile})
+                                   'test_results': proof, 'profile_proof': profile,
+                                   **({'settled_acknowledgement': acknowledgement}
+                                      if acknowledgement else {})})
     else:
         raise ValueError('unsupported task operation')
 
@@ -1316,9 +1567,19 @@ def run_command(command, data):
                     'caller evidence and user confirmation')
             require(Path(git(record['repo'], 'rev-parse', '--path-format=absolute', '--git-common-dir')).resolve()
                     == Path(record['common_dir']), 'canonical repository changed')
+            acknowledgement = require_settled_processed(record, data)
+            if data['stage'] in ('ship', 'complete'):
+                require_final_tree(record, data['stage'])
+            if data['stage'] == 'complete':
+                pending = [key for key, token in record.get('continuations', {}).items()
+                           if token['status'] == 'pending']
+                require(not pending,
+                        'pending continuations block the complete checkpoint: ' + ', '.join(pending))
             record['evidence'].append({'previous_host': record['host'], 'host': host,
                                        'stage': data['stage'], 'verification': data['evidence'],
-                                       **({'session_change': change} if moved else {})})
+                                       **({'session_change': change} if moved else {}),
+                                       **({'settled_acknowledgement': acknowledgement}
+                                          if acknowledgement else {})})
             if moved:
                 record.setdefault('previous_sessions', []).append(record['host']['session'])
             record['host'] = host
@@ -1337,14 +1598,99 @@ def run_command(command, data):
             require(operation['status'] == 'uncertain' and data.get('result'), 'operation already reconciled or no result')
             operation['result'] = data['result']
             operation['status'] = 'observed'
+        elif command == 'operation-disposition':
+            operation = record['operations'][identifier(data['operation_id'])]
+            require(operation['status'] == 'uncertain' and 'disposition' not in operation,
+                    'operation already reconciled or disposed')
+            disposition = data.get('disposition')
+            require(disposition in ('retained', 'unavailable'),
+                    'disposition must be retained or unavailable')
+            require(data.get('evidence'), 'observed evidence for the disposition required')
+            require(operation['operation'] in CLEANUP_OPERATIONS,
+                    'only a cleanup intent can be retained or unavailable; reconcile the others')
+            operation['disposition'] = {'disposition': disposition, 'evidence': data['evidence'],
+                                        'at': observed_at()}
+        elif command in ('continuation-open', 'continuation-ack'):
+            tokens = record.setdefault('continuations', {})
+            key = identifier(data['continuation_id'])
+            if command == 'continuation-open':
+                require(key not in tokens, 'continuation already recorded; acknowledge it first')
+                require(data.get('kind') in ('worker', 'hosted'), 'continuation kind must be worker or hosted')
+                require(data.get('owner') == record['host']['session'],
+                        'continuation owner must be the current orchestrator session')
+                for field in ('next_observation', 'expected_event'):
+                    require(isinstance(data.get(field), str) and data[field].strip(),
+                            'continuation requires its ' + field.replace('_', ' '))
+                token = {'kind': data['kind'], 'owner': data['owner'], 'status': 'pending',
+                         'next_observation': data['next_observation'],
+                         'expected_event': data['expected_event'], 'opened_at': observed_at()}
+                if data['kind'] == 'worker':
+                    require(isinstance(data.get('task'), str) and data['task'] in record['tasks'],
+                            'a worker continuation names its registered task')
+                    task = record['tasks'][data['task']]
+                    attempt = next((a for a in task['attempts'] if a['id'] == data.get('attempt')), None)
+                    require(attempt is not None, 'a worker continuation names that task\'s attempt')
+                    require(attempt['status'] not in SETTLED_STATUSES,
+                            'that attempt is already processed')
+                    token.update(task=data['task'], attempt=attempt['id'])
+                else:
+                    require(isinstance(data.get('gate'), str) and data['gate'].strip(),
+                            'a hosted continuation names its gate')
+                    token['gate'] = data['gate']
+                tokens[key] = token
+            else:
+                token = tokens[key]
+                require(token['status'] == 'pending', 'continuation already acknowledged')
+                require(data.get('evidence'), 'observed settlement evidence required')
+                acknowledgement = data.get('acknowledgement')
+                if acknowledgement in ('native-wake-up', 'observed-settlement'):
+                    # A wake-up is a claim about the harness: only the observed event records it.
+                    require(data.get('observed') is True,
+                            'a closing acknowledgement requires the observed event')
+                    if token['kind'] == 'worker':
+                        bound = next((attempt for attempt in
+                                      (record['tasks'].get(token['task']) or {}).get('attempts', [])
+                                      if attempt['id'] == token['attempt']), None)
+                        require(bound is not None and (bound['status'] == 'reported'
+                                                       or bound['status'] in SETTLED_STATUSES),
+                                'the bound attempt has not settled; keep the continuation pending')
+                    if acknowledgement == 'native-wake-up':
+                        token['wake_up'] = {'observed': True, 'evidence': data['evidence']}
+                    else:
+                        token['settlement'] = {'observed': True, 'evidence': data['evidence']}
+                    token['claim'] = acknowledgement
+                    token.update(status='acknowledged', evidence=data['evidence'],
+                                 acknowledged_at=observed_at())
+                elif acknowledgement == 'continuation-handoff':
+                    handoff = data.get('handoff') or {}
+                    require(isinstance(handoff.get('owner'), str) and handoff['owner'].strip()
+                            and isinstance(handoff.get('next_observation'), str)
+                            and handoff['next_observation'].strip(),
+                            'a continuation handoff names its owner and next observation')
+                    require(isinstance(data.get('limitation'), str) and data['limitation'].strip(),
+                            'record the wake-up limitation this handoff replaces')
+                    # A handoff moves responsibility; it proves no settlement, so the token stays pending.
+                    token['handoff'] = {'owner': handoff['owner'],
+                                        'next_observation': handoff['next_observation'],
+                                        'limitation': data['limitation'],
+                                        'recorded_at': observed_at()}
+                else:
+                    raise ValueError('continuation acknowledgement must be native-wake-up '
+                                     'or continuation-handoff')
         elif command == 'task':
             task_id = identifier(data['task'])
             require(task_id not in record['tasks'], 'task already exists')
             dependencies = data.get('dependencies', [])
             require(len(set(dependencies)) == len(dependencies) and
                     all(d in record['tasks'] for d in dependencies), 'invalid dependencies')
+            purpose = data.get('purpose', 'implementation')
+            require(purpose in TASK_PURPOSES,
+                    'task purpose must be preparation, findings, implementation or acceptance')
+            require(purpose != 'acceptance' or data.get('role', 'implementer') in ('reviewer', 'qa'),
+                    'an acceptance task carries the reviewer or qa role')
             record['tasks'][task_id] = {'dependencies': dependencies, 'recoveries': 0,
-                                        'attempts': [], 'verified': False, 'role': data.get('role', 'implementer')}
+                                        'attempts': [], 'verified': False, 'purpose': purpose,
+                                        'role': data.get('role', 'implementer')}
         elif command.startswith('orca-'):
             orca_evidence(command, data, record, directory)
         else:
