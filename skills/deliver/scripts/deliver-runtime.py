@@ -312,10 +312,12 @@ def patch_ids(repo, base, tip):
     return ids
 
 
-def state_root(data):
+def state_root(data, create=True):
     default = Path(os.environ.get('XDG_STATE_HOME', Path.home() / '.local/state')) / 'flyingnobita-deliver'
     root = Path(data.get('state_root', default)).expanduser().resolve()
-    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if create:
+        root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    require(root.is_dir(), 'state root missing')
     require(root.stat().st_uid == os.getuid() and root.stat().st_mode & 0o077 == 0,
             'state root must be private and owned by current user')
     return root
@@ -698,6 +700,135 @@ def requested_profile(record, task, data, previous=None):
     return chosen
 
 
+def canonical_report(report):
+    return json.dumps(report, sort_keys=True, separators=(',', ':'))
+
+
+def report_digest(report):
+    return hashlib.sha256(canonical_report(report).encode()).hexdigest()
+
+
+def report_settlement(record, attempt, data):
+    """A fresh native settled observation; an explicit asynchronous contract is the only alternative."""
+    contract = data.get('asynchronous_contract')
+    if contract:
+        require(isinstance(contract, str) and contract.strip(),
+                'explicit asynchronous-report contract requires its evidence')
+        return {'asynchronous_contract': contract, 'at': observed_at()}
+    binary = data.get('herdr_bin', 'herdr')
+    pattern = data.get('busy_pattern', r'\b(test|pytest|vitest|jest)\b')
+    pause = data.get('settlement_poll_s', 1)
+    require(isinstance(pause, (int, float)) and 0 < pause <= 5,
+            'settlement poll must be bounded to 5 seconds')
+    pane, workspace = attempt['resource']['pane'], attempt['resource']['workspace']
+    worktree = Path(attempt['resource']['worktree']).resolve()
+    head = check_resource(record, attempt['resource'])
+    quiet, observation = 0, None
+    while quiet < 2:
+        try:
+            agent = json.loads(subprocess.check_output([binary, 'agent', 'get', pane],
+                                                       text=True, timeout=10))['result']['agent']
+        except (subprocess.SubprocessError, OSError, ValueError, KeyError) as error:
+            raise ValueError(f'cannot observe the worker for settlement: {error}') from None
+        require(agent.get('pane_id') == pane and agent.get('workspace_id') == workspace,
+                'settlement observation is for another pane or workspace')
+        session = (agent.get('agent_session') or {}).get('value')
+        if attempt.get('worker_session'):
+            require(session == attempt['worker_session'],
+                    'settlement observation is for another worker session')
+        status = agent.get('agent_status')
+        if status in ('idle', 'done', 'exited'):
+            require(not busy_processes(worktree, pattern),
+                    'worker has background work in the checkout; observe a real settlement')
+        if status == 'idle':
+            quiet += 1
+            if quiet < 2:
+                time.sleep(pause)
+        elif status in ('done', 'exited'):
+            quiet = 2
+        else:
+            require(False, f'worker is {status or "unknown"}, not settled; wait for a bounded '
+                           'native settlement observation or record an explicit asynchronous contract')
+        observation = {'agent_status': status, 'pane': pane, 'agent_session': session}
+    require(check_resource(record, attempt['resource']) == head,
+            'checkout work changed during the settlement observation')
+    return {**observation, 'commit': head, 'at': observed_at()}
+
+
+def sealed_report(attempt):
+    """The canonical snapshot sealed at registration; historical reports remain readable."""
+    seal = attempt.get('report_seal')
+    if seal is None:
+        return json.loads(Path(attempt['report_path']).read_text())
+    require(report_digest(seal['snapshot']) == seal.get('sha256'), 'sealed report digest mismatch')
+    path = Path(attempt['report_path'])
+    require(path.is_file(), 'report file missing after registration')
+    require(report_digest(json.loads(path.read_text())) == seal['sha256'],
+            'report changed after registration; a worker correction needs a new attempt')
+    return seal['snapshot']
+
+
+def same_stored_report(attempt, report):
+    """Any existing body must be canonically identical; type-equal JSON is not enough."""
+    path = Path(attempt['report_path'])
+    if path.exists():
+        require(report_digest(json.loads(path.read_text())) == report_digest(report),
+                'report is immutable')
+
+
+def validate_report_command(data):
+    """Read-only worker preflight: report validation without the writer lock or a write."""
+    directory = state_root(data, create=False) / identifier(data['run_id'])
+    require(directory.is_dir() and not directory.is_symlink(), 'run missing or symlinked')
+    record = json.loads((directory / 'run.json').read_text())
+    require(record['schema'] == 1, 'unsupported state schema')
+    require(data['task'] in record['tasks'], 'task not found')
+    task = record['tasks'][data['task']]
+    require(not task.get('abandoned'), 'task abandoned')
+    require(task['attempts'], 'no task attempt')
+    attempt = task['attempts'][-1]
+    require(data['attempt'] == attempt['id'], 'stale attempt')
+    require(attempt['status'] in ('dispatch-uncertain', 'observed'), 'attempt not dispatched')
+    require(record['host']['host'] == 'herdr', 'native report requires Herdr')
+    candidate = data.get('report')
+    if candidate is None:
+        path = Path(data['report_path'])
+        require(path.is_file(), 'report file missing')
+        candidate = json.loads(path.read_text())
+    validate_report(record, task, data, attempt, candidate)
+    same_stored_report(attempt, candidate)
+    return {'valid': True, 'sha256': report_digest(candidate)}
+
+
+def validate_report(record, task, data, attempt, report):
+    """The one validation path shared by registration and the worker's dry run."""
+    require(isinstance(report, dict), 'report must be a JSON object')
+    require(all(report.get(k) == v for k, v in
+                [('run_id', record['run_id']), ('task', data['task']), ('attempt', attempt['id'])]),
+            'report identity mismatch')
+    require(isinstance(report.get('checks'), list) and report['checks'],
+            'checks must be a nonempty list')
+    require(isinstance(report.get('questions'), list), 'questions must be a list')
+    require(report.get('commit') == check_resource(record, attempt['resource']), 'report commit mismatch')
+    test_report(record, task, attempt, report)
+    if record.get('profile_contract') == 1:
+        report_profile(task, attempt, report)
+
+
+def journal_refusal(record, task, data, attempt, report, directory, error):
+    """Only a valid-identity current-HEAD body/provenance defect is a refused report."""
+    if 'report_refusal' in attempt or not isinstance(report, dict):
+        return
+    identity = all(report.get(k) == v for k, v in
+                   [('run_id', record['run_id']), ('task', data['task']), ('attempt', attempt['id'])])
+    commit = report.get('commit')
+    if not identity or commit != check_resource(record, attempt['resource']):
+        return
+    task['refusals'] = task.get('refusals', 0) + 1
+    attempt['report_refusal'] = {'message': str(error), 'commit': commit, 'at': observed_at()}
+    atomic(directory / 'run.json', record)
+
+
 def update_task(command, data, record, directory):
     task = record['tasks'][data['task']]
     require(not task.get('abandoned'), 'task abandoned')
@@ -846,7 +977,7 @@ def update_task(command, data, record, directory):
             require(head == refusal['commit'], 'work changed since refusal; inspect before followup')
         else:
             head = check_resource(record, attempt['resource'])
-            require(head in (json.loads(Path(attempt['report_path']).read_text())['commit'],
+            require(head in (sealed_report(attempt)['commit'],
                              attempt.get('rebased', {}).get('commit')),
                     'work changed since report; inspect before followup')
         chosen = requested_profile(record, task, data, attempt)
@@ -929,37 +1060,33 @@ def update_task(command, data, record, directory):
     elif command == 'report':
         report = data['report']
         require(attempt['status'] in ('dispatch-uncertain', 'observed'), 'attempt not dispatched')
-        require(all(report.get(k) == v for k, v in
-                    [('run_id', record['run_id']), ('task', data['task']), ('attempt', attempt['id'])]),
-                'report identity mismatch')
-        require(report.get('checks') and isinstance(report.get('questions'), list), 'incomplete report')
-        require(report.get('commit') == check_resource(record, attempt['resource']), 'report commit mismatch')
+        require(record['host']['host'] == 'herdr', 'native report requires Herdr')
         try:
-            test_report(record, task, attempt, report)
-            if record.get('profile_contract') == 1:
-                report_profile(task, attempt, report)
+            validate_report(record, task, data, attempt, report)
         except ValueError as error:
             # A refused report goes back to its own worker through followup; record
-            # the refusal before this command fails so the attempt stays reusable.
-            if 'report_refusal' not in attempt:  # one refusal per attempt, so it spends one return
-                task['refusals'] = task.get('refusals', 0) + 1
-                attempt['report_refusal'] = {'message': str(error), 'commit': report['commit'],
-                                             'at': observed_at()}
-                atomic(directory / 'run.json', record)
+            # only a valid-identity current-HEAD body/provenance defect.
+            journal_refusal(record, task, data, attempt, report, directory, error)
             raise
+        # Settlement is a registration gate, not a report finding: it never counts
+        # as a refusal and never goes back to the worker as a body defect.
+        settlement = report_settlement(record, attempt, data)
+        if 'commit' in settlement:
+            require(settlement['commit'] == report['commit'], 'report commit mismatch')
         attempt.pop('report_refusal', None)
+        same_stored_report(attempt, report)
         path = Path(attempt['report_path'])
-        if path.exists():
-            require(json.loads(path.read_text()) == report, 'report is immutable')
-        else:
+        if not path.exists():
             atomic(path, report)
+        attempt['report_settlement'] = settlement
+        attempt['report_seal'] = {'sha256': report_digest(report), 'snapshot': report}
         attempt['status'] = 'reported'
         attempt['reported_at'] = observed_at()
     elif command == 'rebased':
         # The orchestrator's landing rebase onto a moved target; only identical patches qualify.
         require(attempt['status'] == 'reported' and not task['verified'] and data.get('evidence'),
                 'rebase claim requires an unverified report and evidence')
-        report = json.loads(Path(attempt['report_path']).read_text())
+        report = sealed_report(attempt)
         head = check_resource(record, attempt['resource'])
         require(data.get('commit') == head and
                 not git(attempt['resource']['worktree'], 'status', '--porcelain', '--untracked-files=all'),
@@ -975,7 +1102,7 @@ def update_task(command, data, record, directory):
         attempt['rebased'] = {'onto': onto, 'commit': head, 'evidence': data['evidence'], 'at': observed_at()}
     elif command == 'verify':
         require(attempt['status'] == 'reported', 'matching report required')
-        report = json.loads(Path(attempt['report_path']).read_text())
+        report = sealed_report(attempt)
         require(not report['questions'], 'unresolved worker questions')
         require(data.get('host') == record['host']['session'], 'revalidate host before verification')
         landed = attempt.get('rebased', {}).get('commit', report['commit'])
@@ -1232,7 +1359,7 @@ def main():
     if command == 'orca-settle':
         command = 'orca-report'
     standalone = {'select': select, 'select-host': select_hosts, 'profiles': profiles, 'wait': wait,
-                  'herdr-project-roles': herdr_project_roles,
+                  'herdr-project-roles': herdr_project_roles, 'validate-report': validate_report_command,
                   'create': create, 'migrate-orca': migrate_orca, 'orca-task': orca_task}
     result = standalone[command](data) if command in standalone else run_command(command, data)
     print(json.dumps(result))

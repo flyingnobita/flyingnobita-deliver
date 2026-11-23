@@ -5,6 +5,7 @@ import hashlib
 import os
 import subprocess
 import tempfile
+import time
 import tomllib
 import unittest
 from pathlib import Path
@@ -616,7 +617,8 @@ class RuntimeTests(unittest.TestCase):
             resource = {'worktree': str(worktree), 'branch': 'deliver-build', 'workspace': 'w2',
                         'pane': 'w2:p1', 'agent': 'delivery-build', 'session': 'fixture'}
             attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
-            payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            payload = {**run, 'task': 'build', 'attempt': attempt['id'],
+                       'herdr_bin': str(self.settled_herdr(root))}
             self.trust_attempt(payload)
             self.call('dispatch-intent', {**payload, 'prompt': 'implement'})
             self.bind_fixture_profile(payload)
@@ -768,6 +770,19 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual([args for args in calls if args[:2] == ['agent', 'prompt']], [])
             self.assertEqual(self.call('show', run)['tasks']['build']['attempts'][0]['status'], 'ready')
 
+    def settled_herdr(self, root, status='done', pane='w2:p1', workspace='w2',
+                      session='fixture-worker'):
+        fake = root / f'settled-herdr-{status}'
+        reply = {'result': {'agent': {'pane_id': pane, 'workspace_id': workspace,
+                                      'agent_status': status,
+                                      'agent_session': {'value': session}}}}
+        fake.write_text('#!/usr/bin/env python3\nimport json,sys\n'
+                        'if sys.argv[1:3] == ["agent", "get"]:\n'
+                        f' print(json.dumps({reply!r}))\n'
+                        'else:\n sys.exit(1)\n')
+        fake.chmod(0o700)
+        return fake
+
     def provenance_fixture(self, root, kind='behavioral', docs_only=False, bind_profile=True):
         repo, run = self.setup_run(root)
         self.call('task', {**run, 'task': 'build'})
@@ -800,7 +815,7 @@ class RuntimeTests(unittest.TestCase):
                   'commit': self.git(worker, 'rev-parse', 'HEAD'), 'checks': ['green'], 'questions': [],
                   'test_scope': 'changed', 'test_evidence': [group],
                   'observed_profile': FIXTURE_PROFILE}
-        return payload, report
+        return {**payload, 'herdr_bin': str(self.settled_herdr(root))}, report
 
     def test_profile_proof_is_required_and_must_match_the_authorized_request(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -907,6 +922,182 @@ class RuntimeTests(unittest.TestCase):
             invalid['test_evidence'][0]['subject_commit'] = report['commit']
             self.call('report', {**payload, 'report': invalid}, ok=False)
             self.call('report', {**payload, 'report': report})
+
+    def test_validate_report_matches_registration_and_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload, report = self.provenance_fixture(root)
+            state = Path(payload['state_root']) / payload['run_id'] / 'run.json'
+            before = state.read_bytes()
+            result = self.call('validate-report', {**payload, 'report': report})
+            self.assertEqual(result, {'valid': True, 'sha256': hashlib.sha256(
+                json.dumps(report, sort_keys=True, separators=(',', ':')).encode()).hexdigest()})
+            self.assertEqual(state.read_bytes(), before, 'a dry run must not write the run record')
+            attempt = self.call('show', payload)['tasks']['build']['attempts'][0]
+            self.assertFalse(Path(attempt['report_path']).exists())
+            self.assertNotIn('report_refusal', attempt)
+            self.assertEqual(attempt['status'], 'dispatch-uncertain')
+            Path(attempt['report_path']).write_text(json.dumps(report))
+            self.assertEqual(self.call('validate-report', {
+                **payload, 'report_path': attempt['report_path']})['valid'], True)
+            self.assertEqual(state.read_bytes(), before)
+
+    def test_validate_report_returns_the_same_findings_registration_would(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            missing_checks = {k: v for k, v in report.items() if k != 'checks'}
+            missing_evidence = {k: v for k, v in report.items() if k not in ('test_scope', 'test_evidence')}
+            missing_group = {**report, 'test_evidence': []}
+            non_string = json.loads(json.dumps(report))
+            non_string['test_evidence'][0]['id'] = 7
+            incoherent = json.loads(json.dumps(report))
+            incoherent['test_evidence'][0]['tests'][0]['sha256'] = '0' * 64
+            for invalid in (missing_checks, missing_evidence, missing_group, non_string, incoherent):
+                dry = self.call('validate-report', {**payload, 'report': invalid}, ok=False)
+                registered = self.call('report', {**payload, 'report': invalid}, ok=False)
+                self.assertEqual(dry, registered, 'dry run must return the registration finding')
+            self.assertEqual(self.call('validate-report', {**payload, 'report': report})['valid'], True)
+            self.assertEqual(self.call('report', {**payload, 'report': report})['tasks']['build']
+                             ['attempts'][0]['status'], 'reported')
+
+    def test_a_registered_report_is_sealed_and_mutation_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory), docs_only=True)
+            report.update(test_scope='docs-only', test_evidence=[], test_reason='Only Markdown changed')
+            attempt = self.call('report', {**payload, 'report': report})['tasks']['build']['attempts'][0]
+            self.assertIn('report_seal', attempt, 'registration must seal the canonical report snapshot')
+            seal = attempt['report_seal']
+            self.assertEqual(seal['snapshot'], report)
+            self.assertEqual(seal['sha256'], hashlib.sha256(json.dumps(
+                report, sort_keys=True, separators=(',', ':')).encode()).hexdigest())
+            path = Path(attempt['report_path'])
+            mutated = json.loads(path.read_text())
+            mutated.update(checks=['tampered'], questions=['added after registration'])
+            path.write_text(json.dumps(mutated))
+            verify = {**payload, 'commit': report['commit'], 'host': 'fixture', 'evidence': 'independent'}
+            self.assertIn('report changed after registration', self.call('verify', verify, ok=False))
+            self.assertIn('report changed after registration', self.call(
+                'followup', {**payload, 'evidence': 'correction'}, ok=False))
+            self.assertFalse(self.call('show', payload)['tasks']['build']['verified'])
+            path.write_text(json.dumps(report))
+            self.call('verify', verify)
+
+    def test_report_registration_requires_fresh_native_settlement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload, report = self.provenance_fixture(root)
+            attempt = self.call('show', payload)['tasks']['build']['attempts'][0]
+            Path(attempt['report_path']).write_text(json.dumps(report))
+            claimed = {**payload, 'herdr_bin': str(self.settled_herdr(root, status='working')),
+                       'settlement': {'state': 'idle'}}
+            message = self.call('report', {**claimed, 'report': report}, ok=False)
+            self.assertIn('worker is working', message)
+            self.assertNotIn('report_refusal', self.call('show', payload)['tasks']['build']['attempts'][0])
+            self.assertNotIn('report_seal', self.call('show', payload)['tasks']['build']['attempts'][0])
+            asynchronous = self.call('report', {
+                **claimed, 'report': report,
+                'asynchronous_contract': 'worker still running; asynchronous report approved in the plan'})
+            settlement = asynchronous['tasks']['build']['attempts'][0]['report_settlement']
+            self.assertEqual(settlement['asynchronous_contract'],
+                             'worker still running; asynchronous report approved in the plan')
+            self.assertIn('at', settlement)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload, report = self.provenance_fixture(root)
+            settled = self.call('report', {**payload, 'report': report})
+            observation = settled['tasks']['build']['attempts'][0]['report_settlement']
+            self.assertEqual(observation['agent_status'], 'done')
+            self.assertEqual(observation['commit'], report['commit'])
+            self.assertEqual(observation['pane'], 'w2:p1')
+
+    def test_report_settlement_requires_two_idle_samples_and_the_bound_session(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload, report = self.provenance_fixture(root)
+            other = self.settled_herdr(root, session='other-worker')
+            self.assertIn('another worker session', self.call(
+                'report', {**payload, 'herdr_bin': str(other), 'report': report}, ok=False))
+            idle = self.settled_herdr(root, status='idle')
+            settled = self.call('report', {**payload, 'herdr_bin': str(idle),
+                                           'settlement_poll_s': 0.01, 'report': report})
+            self.assertEqual(settled['tasks']['build']['attempts'][0]['report_settlement']
+                             ['agent_status'], 'idle')
+
+    def test_report_will_not_settle_over_background_work_in_the_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            worktree = Path(self.call('show', payload)['tasks']['build']['attempts'][0]
+                            ['resource']['worktree'])
+            process = subprocess.Popen(['bash', '-c', 'exec -a pytest-sleeper sleep 5'], cwd=worktree)
+            try:
+                time.sleep(0.2)
+                message = self.call('report', {**payload, 'report': report}, ok=False)
+                self.assertIn('background work', message)
+            finally:
+                process.terminate()
+                process.wait()
+
+    def test_report_validation_rejects_nonobjects_and_empty_checks_with_same_findings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            for candidate in ([], 'report', 7):
+                dry = self.call('validate-report', {**payload, 'report': candidate}, ok=False)
+                registered = self.call('report', {**payload, 'report': candidate}, ok=False)
+                self.assertEqual(dry, registered, 'nonobject findings must match')
+                self.assertIn('report must be a JSON object', dry)
+                self.assertNotIn('Traceback', dry)
+            attempt = self.call('show', payload)['tasks']['build']['attempts'][0]
+            self.assertNotIn('report_refusal', attempt, 'nonobjects must not be journaled')
+            for checks in ([], None, 'passed'):
+                dry = self.call('validate-report', {**payload, 'report': {**report, 'checks': checks}}, ok=False)
+                registered = self.call('report', {**payload, 'report': {**report, 'checks': checks}}, ok=False)
+                self.assertEqual(dry, registered, 'empty/non-list checks findings must match')
+                self.assertIn('checks must be a nonempty list', dry)
+            refused = self.call('show', payload)['tasks']['build']['attempts'][0]
+            self.assertEqual(refused['report_refusal']['message'], 'checks must be a nonempty list')
+            self.assertEqual(refused['report_refusal']['commit'], report['commit'])
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            missing_commit = {k: v for k, v in report.items() if k != 'commit'}
+            dry = self.call('validate-report', {**payload, 'report': missing_commit}, ok=False)
+            registered = self.call('report', {**payload, 'report': missing_commit}, ok=False)
+            self.assertEqual(dry, registered, 'missing commit findings must match')
+            self.assertIn('report commit mismatch', dry)
+            stale = {**report, 'attempt': 'stale'}
+            self.assertEqual(self.call('validate-report', {**payload, 'report': stale}, ok=False),
+                             self.call('report', {**payload, 'report': stale}, ok=False))
+            attempt = self.call('show', payload)['tasks']['build']['attempts'][0]
+            self.assertNotIn('report_refusal', attempt, 'invalid identity or commit must not be journaled')
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            zero = {**report, 'test_evidence': [{'id': 7}]}
+            self.call('report', {**payload, 'report': zero}, ok=False)
+            attempt = self.call('show', payload)['tasks']['build']['attempts'][0]
+            self.assertEqual(attempt['report_refusal']['message'], 'test provenance needs unique group ids')
+            self.assertEqual(attempt['report_refusal']['commit'], report['commit'])
+
+    def test_report_cannot_register_a_body_that_differs_only_by_canonical_encoding(self):
+        with tempfile.TemporaryDirectory() as directory:
+            payload, report = self.provenance_fixture(Path(directory))
+            path = Path(self.call('show', payload)['tasks']['build']['attempts'][0]['report_path'])
+            path.write_text(json.dumps({**report, 'checks': [True]}))
+            self.assertIn('report is immutable', self.call(
+                'validate-report', {**payload, 'report': {**report, 'checks': [1]}}, ok=False))
+            message = self.call('report', {**payload, 'settlement': {'state': 'done'},
+                                           'report': {**report, 'checks': [1]}}, ok=False)
+            self.assertIn('report is immutable', message)
+            self.assertEqual(self.call('show', payload)['tasks']['build']['attempts'][0]['status'],
+                             'dispatch-uncertain')
+
+    def test_validate_report_does_not_create_a_missing_state_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            payload, report = self.provenance_fixture(root)
+            missing = root / 'absent-state'
+            message = self.call('validate-report', {
+                **payload, 'state_root': str(missing), 'report': report}, ok=False)
+            self.assertIn('state root missing', message)
+            self.assertFalse(missing.exists())
 
     def test_verification_requires_matching_independent_assertion_receipts(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1125,6 +1316,9 @@ class RuntimeTests(unittest.TestCase):
             self.call('report', {**payload, 'report': invalid}, ok=False)
             legacy = {k: v for k, v in report.items() if k not in ('test_scope', 'test_evidence')}
             self.call('report', {**payload, 'report': legacy})
+            stored = json.loads(path.read_text())
+            stored['tasks']['build']['attempts'][0].pop('report_seal')
+            path.write_text(json.dumps(stored))
             self.call('verify', {**payload, 'commit': legacy['commit'], 'host': 'fixture', 'evidence': 'legacy independent check'})
 
     def test_native_prompt_timeout_is_durable_and_never_resubmitted(self):
@@ -1169,7 +1363,8 @@ class RuntimeTests(unittest.TestCase):
             resource = {'worktree': str(worktree), 'branch': 'deliver-build', 'workspace': 'w2',
                         'pane': 'w2:p1', 'agent': 'build', 'session': 'fixture'}
             attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
-            payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            payload = {**run, 'task': 'build', 'attempt': attempt['id'],
+                       'herdr_bin': str(self.settled_herdr(root))}
             self.trust_attempt(payload)
             self.call('dispatch-intent', {**payload, 'prompt': 'build'})
             self.bind_fixture_profile(payload)
@@ -1308,7 +1503,8 @@ class RuntimeTests(unittest.TestCase):
             resource = {'worktree': str(worktree), 'branch': 'build', 'workspace': 'w2',
                         'pane': 'w2:p1', 'agent': 'build', 'session': 'fixture'}
             attempt = self.call('attempt', {**run, 'task': 'build', 'resource': resource})['tasks']['build']['attempts'][0]
-            payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            payload = {**run, 'task': 'build', 'attempt': attempt['id'],
+                       'herdr_bin': str(self.settled_herdr(root))}
             self.trust_attempt(payload)
             self.call('dispatch-intent', {**payload, 'prompt': 'build'})
             self.bind_fixture_profile(payload)
@@ -1324,7 +1520,8 @@ class RuntimeTests(unittest.TestCase):
             self.assertNotEqual(followup['id'], attempt['id'])
             self.assertEqual(record['tasks']['build']['recoveries'], 0)
             self.assertEqual(json.loads(Path(attempt['report_path']).read_text()), report)
-            payload = {**run, 'task': 'build', 'attempt': followup['id']}
+            payload = {**run, 'task': 'build', 'attempt': followup['id'],
+                       'herdr_bin': str(self.settled_herdr(root))}
             self.trust_attempt(payload, harness='pi')
             self.call('dispatch-intent', {**payload, 'prompt': 'answer: greeting; continue'})
             self.bind_fixture_profile(payload)
@@ -1516,7 +1713,8 @@ class RuntimeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             _, run, worktree, resource, attempt = self.worker_fixture(root)
-            payload = {**run, 'task': 'build', 'attempt': attempt['id']}
+            payload = {**run, 'task': 'build', 'attempt': attempt['id'],
+                       'herdr_bin': str(self.settled_herdr(root))}
             self.trust_attempt(payload)
             self.call('dispatch-intent', {**payload, 'prompt': 'build'})
             observation = {'session': 'fixture', 'resource': resource, 'agent_state': 'idle',
