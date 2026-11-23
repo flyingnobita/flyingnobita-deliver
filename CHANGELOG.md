@@ -2,6 +2,8 @@
 
 - Nov-23, 2026 - 09:22 PM +08 - Document Pi's worktree trust prompt and automatic sidebar cleanup for removed Orca projects (DLV-46).
 
+- Nov-23, 2026 - 09:08 PM +08 - Preserve delivery worktrees during PR merge and check branch deletion after workspace cleanup (DLV-31).
+
 - Nov-23, 2026 - 07:10 PM +08 - Default Herdr implementation workers to Pi with CommandCode DeepSeek V4.1 Flash at high effort.
 
 - Nov-14, 2026 - 04:47 PM +08 - State in the Herdr adapter that `followup` `evidence` is required for a reported attempt, and that a recorded refusal is the evidence for a refused one (DLV-26).
