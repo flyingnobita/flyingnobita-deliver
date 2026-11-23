@@ -21,21 +21,24 @@ Done when the worker can identify its shared interfaces, escalation boundary
 and verification commands from the packet's focused pointers without exploring
 the entire plan again. Answer plan-settled ownership questions in the packet.
 
-For native `report`/`verify` tasks, include the structured
+For Herdr's native `report`/`verify` tasks, include the structured
 [test evidence contract](test-evidence.md) in an implementer's brief. Record
 exact test snapshots and independent before/after receipts; classify guards,
 bootstrap checks and no-test changes explicitly. Every native report in a new
 run also carries `observed_profile` in the canonical keys from
 [profile proof](profile-proof.md); a missing, differently named or mismatched
-effective profile is refused.
+effective profile is refused. Orca keeps its `orca-report`/`orca-verify`
+workflow and Paseo keeps its run-directory receipts; neither takes this
+preflight.
 
-Before reporting, the worker writes its report file at the attempt's
-`report_path` and runs `validate-report` on it. Fix every finding there first:
-registration returns the same findings, and a refused report costs a followup
-round trip. Registration also requires a settled worker observation
-(`settlement`, or a recorded `reconcile` state) or an explicit
-`asynchronous_contract`, then seals a canonical report snapshot and digest.
-`verify` and `followup` read that snapshot and refuse a report file whose
+After the final rebase and checks, the worker writes its report file at the
+attempt's `report_path` and runs `validate-report` on it. Fix every finding
+there first: registration returns the same findings, and a refused report costs
+a followup round trip. Registration additionally takes a fresh native
+settlement observation for the same pane, workspace, worker session and checkout
+HEAD, or an explicit `asynchronous_contract`; a payload claim never overrides a
+working agent or background work. It then seals a canonical report snapshot and
+digest. `verify` and `followup` read that snapshot and refuse a report file whose
 contents changed after registration.
 
 Verify each gate yourself in the work's workspace. A role's report tells you where to look; your own run is the evidence.
@@ -49,7 +52,7 @@ Start the implementer role. Its brief:
 - load `tdd` (or `mattpocock-tdd`) and work in vertical red-green slices, testing only at the seams listed in the approved plan; those seams are already confirmed with the user, so it starts without asking;
 - run single test files as it goes, then the full suite, linters and the repo's pre-commit hooks at the end;
 - name every test group's kind from the [test evidence contract](test-evidence.md), exactly `behavioral`, `guard` or `bootstrap`. A group that tests a new public surface is `bootstrap`, its test imports that surface at module scope, and the plan gives its plan-backed reason: its missing-surface red is bootstrap absence, not a behavioural import error;
-- write its final report file at the attempt's `report_path` and run `validate-report` on it before reporting; fix every finding, including a missing checks array, non-string ids and an incoherent test snapshot, instead of spending a round trip on a refused report;
+- write its final report file at the attempt's `report_path` and run `validate-report` on it after the final rebase and checks, before reporting; fix every finding, including a missing checks array, non-string ids and an incoherent test snapshot, instead of spending a round trip on a refused report;
 - produce each behavioural group's red on the base subject commit by running only that named test there, with a filtered command whose shape targets one test, such as `python3 -m unittest path.to.TestCase.test_name`, `pytest path::test_name` or `node --test --test-name-pattern '<name>'`; a run of the whole test file counts only when it executed exactly that one test. Record that command with the group and report the group through the [test evidence contract](test-evidence.md);
 - give every stateful command at least one test that starts from empty state (a fresh home, no planted config), and list each file the fixtures plant beside the production code that creates it. A planted file with no producer is missing behaviour, not test setup;
 - give every stateful seam group's test a **second-rewrite variant**: a second pass through the same seam with an adjacent state (the same write repeated, a newer and an older record, or a replayed input), and assert after both passes what the first left and the order or retention limit the seam has. One write proves neither ordering nor retention, and a single-rewrite test can pass on the base while the defect stays;

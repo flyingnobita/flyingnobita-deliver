@@ -82,11 +82,11 @@ request's order:
    to run `implement` (or `mattpocock-implement`) for that ticket alone, the
    repo's commit rules (or the configured `commit_skill`), a `Fixes #N` footer
    for a GitHub issue, the target branch name, and a last step before
-   reporting: write the report file at the attempt's `report_path`, run
-   `validate-report` on it and fix every finding, then `git rebase <target>`
-   onto its current tip, resolve any conflict, and re-run the tests. Its
-   report: commits, the target SHA it rebased onto, and test and lint commands
-   with one status line each.
+   reporting: `git rebase <target>` onto its current tip, resolve any conflict,
+   and re-run the final checks. Only then write the report file at the
+   attempt's `report_path` and run `validate-report` on it; fix every finding.
+   Its report: commits, the target SHA it rebased onto, and test and lint
+   commands with one status line each.
 
 Refill the frontier each time a ticket lands.
 
