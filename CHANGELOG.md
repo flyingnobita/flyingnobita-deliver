@@ -1,5 +1,9 @@
 # Changes
 
+- Nov-23, 2026 - 11:49 PM +08 - Gate delivery on final-tree acceptance, resolved work, and recorded continuation outcomes (DLV-33).
+- Nov-23, 2026 - 11:49 PM +08 - Let Herdr workers validate reports before finishing and seal reports after settlement (DLV-34).
+- Nov-23, 2026 - 11:49 PM +08 - Keep Kaneo-linked tickets in review after local landing so their issues stay open until publication.
+
 - Nov-23, 2026 - 09:22 PM +08 - Document Pi's worktree trust prompt and automatic sidebar cleanup for removed Orca projects (DLV-46).
 
 - Nov-23, 2026 - 09:08 PM +08 - Preserve delivery worktrees during PR merge and check branch deletion after workspace cleanup (DLV-31).

@@ -120,8 +120,10 @@ commits, so a later publish accepts the range.
    refuses rather than overwrite local changes, and that refusal blocks the
    ticket. Otherwise run
    `git update-ref refs/heads/<target> <branch-sha> <target-sha>`.
-4. Set the repo's done or review `status:` label. Leave the issue open: its
-   `Fixes #N` footer closes it when the user publishes.
+4. Set the repo's review `status:` label and verify the issue stays open for
+   the `Fixes #N` footer to close on publication. On a Kaneo-linked board,
+   `status:done` can close the GitHub issue before publication. This was
+   observed on 2026-11-23. Moving the issue to `status:in-review` reopened it.
 5. Clean up through the adapter: close the worker, then remove its workspace
    and worktree with the adapter's single removal call (`herdr worktree
    remove --workspace` on Herdr, `worktree rm` on Orca, `archive_workspace` on
