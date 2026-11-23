@@ -25,6 +25,9 @@ caller membership; installation or matching cwd is insufficient. Read
 a launch or recovery problem. A stopped process and a lost connection require
 different actions. Reports remain outside disposable worktrees.
 
+For Orca project registration cleanup and paired sidebar behavior, see the
+[Orca adapter](../adapters/orca.md#resume-and-cleanup).
+
 The pipeline's source of truth is [pipeline.md](pipeline.md), and publication
 authority is defined in [ship.md](ship.md) and the repo's own rules. A role's
 success report does not independently verify a stage. "Wrap up" reports a

@@ -190,12 +190,10 @@ create or own a Dagr viewer; retained historical graphs remain evidence only.
 
 ## Pre-dispatch worktree trust
 
-A fresh worktree checkout has no workspace-trust state in the harness, so its
-first interactive start can stop at the harness's own trust dialog. Herdr then
-reports `agent start` as `agent_not_ready` (`blocked during startup`), and the
-pane consumes anything typed at it. That is the 2026-11-11 retrospective's
-uncertain dispatch: a blocked startup, then `/status` and prompt text written
-into a live worker pane.
+The first interactive start in a fresh worktree can stop at the harness's own
+trust dialog. Herdr can return `agent_not_ready` (`blocked during startup`) or
+report the agent as ready while the dialog is still open. The pane consumes
+anything typed at it as dialog input.
 
 Before dispatch, establish that harness's trust for the exact new checkout and
 record the acknowledgement with `worktree-trust`: `task`, `attempt`, the
@@ -205,13 +203,15 @@ observed `evidence` of the acknowledgement, and one `method`:
 - `harness-config`: the harness's own per-directory trust entry was written
   before startup.
 - `native-flag`: a verified launch flag accepts the directory.
-- `operator-accepted`: the user accepted the dialog in that exact pane.
+- `operator-accepted`: the user accepted trust for this checkout or a parent
+  folder that covers it.
 - `not-required`: a verified harness with no workspace-trust dialog.
 
 Record `harness-config` and `native-flag` before `agent start`. The other two
-follow an observation: `operator-accepted` after the user answered the dialog in
-that pane, and `not-required` after a verified startup showed no dialog. Record
-both before `prompt` or `dispatch-intent`.
+follow an observation: `operator-accepted` after confirming the user's
+acceptance applies to the checkout, and `not-required` after a verified startup
+of a harness with no trust dialog. Record both before `prompt` or
+`dispatch-intent`.
 
 Records are append-only and scoped to one checkout and the attempt's planned
 harness. `prompt` and `dispatch-intent` refuse an attempt until a matching record
@@ -229,7 +229,19 @@ stop with `--dangerously-skip-permissions`,
 `--dangerously-bypass-approvals-and-sandbox` or another bypass: that broadens
 permissions instead of accepting a directory.
 
-agy, Pi, omp and OpenCode have no verified trust mechanism in the current
+Pi 1.6.0 under Herdr 0.9.5 showed a `Trust project folder?` dialog in a fresh
+worktree on 2026-11-23. While it was open, `herdr agent start` returned
+`agent_started` with `agent_status: idle` and `interactive_ready: true`, and
+`agent_session` stayed null. Before `profile-bind` or `prompt`, inspect the
+pane with `herdr agent read PANE --source visible --lines 40`. If the dialog is
+open, have the user answer in that pane and check it again afterward. If the
+user chooses `Trust parent folder`, later worktrees under that folder can start
+without a dialog. For each later checkout, confirm it resolves under the
+accepted parent and that the visible startup clears the trust check. Record
+`operator-accepted` for the exact checkout with evidence of the accepted
+parent path and the observed startup.
+
+agy, omp and OpenCode have no verified trust mechanism in the current
 evidence. Stop for the user at that exact pane, record `operator-accepted` with
 the observed post-acceptance state, then dispatch. `herdr worktree create
 --trust-repository` is separate: it grants per-request Git trust after the user
@@ -266,8 +278,8 @@ a later record is reconciliation evidence, never proof of prior intent.
    inspect that the pane contains an available interactive shell. Establish
    trust for the exact checkout and planned harness as the section above
    requires: record it with `worktree-trust` before `agent start` when the
-   harness has a config or flag mechanism, or from the observed acceptance at
-   its first start. Then start
+   harness has a config or flag mechanism, or from startup evidence as
+   described above. Start the worker with
    `herdr agent start NAME --kind KIND --pane PANE --timeout 30000 -- ARGV...`.
    Names are unique and at most 32 characters. Save actual harness session ID
    after readiness. agy reports its session only when it receives a prompt, so

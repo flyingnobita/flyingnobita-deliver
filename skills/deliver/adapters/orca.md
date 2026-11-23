@@ -178,3 +178,9 @@ after squash, and recheck status and ownership immediately before removal.
 For `leave`, partial runs and upstream PRs, retain integration workspaces.
 Keep native and delivery records after cleanup. Final reporting distinguishes
 native outcome, independently verified gates and any remaining acceptance gap.
+
+When removing an Orca project registration, pass `--force` to
+`ORCA project setup-delete --setup <id>` while saved workspace details remain.
+On Orca 1.4.263 (verified 2026-11-23), the removed project's workspace
+disappeared from the paired app's sidebar automatically and stayed gone after
+restart. [Orca issue](https://github.com/stablyai/orca/issues/27723)
