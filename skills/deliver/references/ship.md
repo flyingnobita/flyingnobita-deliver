@@ -40,11 +40,13 @@ The repo's `AGENTS.md` merge rule or explicit session approval authorizes mergin
 1. Push the branch and verify the remote branch ref equals the local `HEAD`.
 2. Open the PR against the default branch.
 3. For `pr`, or when merge authority is absent, report the PR and verified head and retain the workspace. Otherwise, if authorized to merge, wait for any required status checks; a failure goes back through the pipeline as a red-green fix.
-4. Squash-merge and delete the remote branch.
-5. Remove the work's workspace if the run created it, fast-forward the local default branch, and verify it equals the merged commit on the remote. A reused workspace is your own: keep it and its branch, and name both in the final report for the user to archive.
-6. Delete the local work branch of a created workspace once `git diff --quiet <branch> <default>` shows its tree equals the default branch. A squash merge leaves the branch unmerged by ancestry, so this tree check is the evidence; a differing tree is a blocker to report.
+4. Squash-merge and never pass `--delete-branch` (`gh pr merge <n> --squash`), then record the merged commit on the remote default branch. gh reads `--delete-branch` as "delete the branch everywhere": it also deletes every worktree that has the branch checked out, so a created workspace loses its path and its local branch before cleanup reaches it, and the host's worktree removal then has nothing to remove while its panes point at a deleted cwd (observed 2026-11-14 from the main checkout on PR flyingnobita/agent-profiles#49).
+5. Fast-forward the local default branch and verify it equals the merged commit on the remote, then confirm the branch's tree equals the default branch with `git diff --quiet <branch> <default>`. Run this check while the remote work branch still exists: a squash merge leaves the branch unmerged by ancestry, so the tree equality is the only evidence it landed, and a differing tree is a blocker to report before anything is deleted.
+6. Remove the created workspace through the host adapter and verify it is gone (`git worktree list` shows no path for it and the adapter reports the removal). A reused workspace is your own: keep it and its branch, and name both in the final report for the user to archive.
+7. Delete the remote work branch of a created workspace only after step 6 confirmed the workspace is gone, with an explicit remote-only deletion (`git push <remote> --delete <branch>`) that touches no local ref or worktree. Verify the remote ref is gone with `git ls-remote --heads <remote> <branch>` returning no row; a surviving row is a blocker to report. A repository that already auto-deletes head branches reports the branch as absent here and needs no push.
+8. Delete the local work branch with `git branch -D <branch>`, gated on step 5's tree check: `-d` refuses a branch squash-merged without ancestry.
 
-Done when the local default branch equals the remote merged commit and no work branch or created workspace remains.
+Done when the local default branch equals the remote merged commit and, for a created workspace, no workspace or work branch remains locally or on the remote; a reused workspace and its branch are kept and named instead.
 
 ## Upstream repo
 
