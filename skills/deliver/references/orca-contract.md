@@ -31,8 +31,9 @@ until the installed host guide supplies a supported resolution.
 
 `create` defaults new Orca records to `orca_contract:2`. Existing records lacking
 this field, and explicitly imported `orca_contract:1` records, retain the old
-recovery interface. Use contract 1 only to recover an existing run, never to
-bypass a failed check on new work. Keep records immutable across upgrades.
+recovery interface and its older stage gates. Use contract 1 only to recover an
+existing run, never to bypass a failed check on new work. Keep records immutable
+across upgrades.
 
 Before creating a native Task, compile `deliver-runtime orca-task` with a
 `packet` object:
@@ -45,6 +46,7 @@ Before creating a native Task, compile `deliver-runtime orca-task` with a
     "constraints": "Read-only review; local-only results",
     "ownership": "Findings artifact only; no edits or repairs",
     "acceptance": "Separate Standards/Spec findings at the named HEAD",
+    "purpose": "findings",
     "profile": {"harness":"antigravity","model":"gemini-3.8-flash-medium","effort":"medium"},
     "report_path": "/private/run-directory/review.md",
     "verification_commands": [["git","diff","--check"]],
@@ -53,8 +55,15 @@ Before creating a native Task, compile `deliver-runtime orca-task` with a
 }
 ```
 
-The profile above is an example, not a default. `axis` is optional for ordinary
-roles; use `standards` or `spec` for each nested review axis. Compiler output is
+The profile above is an example, not a default. `purpose` is
+`preparation`, `findings`, `implementation` or `acceptance`; only a `reviewer` or
+`qa` job may be `acceptance`, and a job's role alone never seals a delivery gate.
+A new gate-contract intent must carry it, and a supplied value is always
+validated. A packet written before the typed purpose still compiles to its
+original spec and digest, because the purpose line is added only when it is
+present.
+`axis` is optional for ordinary roles; use `standards` or `spec` for each nested
+review axis. Compiler output is
 `spec` and its digest. Pass that exact spec to native `task-create`; save the
 packet and compiled output. Each axis needs its complete spec before launch.
 The compiler checks required structure, not whether prose or chosen commands

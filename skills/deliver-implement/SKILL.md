@@ -141,7 +141,10 @@ Done when every ticket has landed, is blocked, or is abandoned.
 ## 4. Report
 
 Record the run's end with the runtime's `checkpoint`: stage `complete` when
-every ticket landed, otherwise `blocked`, with the landed range as evidence. On
+every ticket landed, otherwise `blocked`, with the landed range as evidence. An
+`implement` run needs no delivery acceptance seal, but `complete` still refuses
+an unresolved task, an unreconciled Orca job or native intent, and a pending
+continuation. A partial run ending on `blocked` is a legitimate result. On
 Paseo, append the same final state to the run directory's run note instead.
 
 Report: the target branch and its final SHA; each ticket as landed (its

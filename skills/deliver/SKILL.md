@@ -25,6 +25,18 @@ belong to the role, not the orchestrator.
 
 Work that needs steps only the user can perform (credentials, CI secrets, a third-party dashboard) is also a stop: load `wizard` (or `mattpocock-wizard`) to generate a guided script for those steps, and resume when the user reports them done.
 
+A pending worker or hosted gate is not a stop. Do not end the turn because a
+gate is still running: record a `continuation-open` token with its owner, next
+observation, expected event and its task/attempt or gate, and open one at every
+wait. Acknowledge it with observed settlement evidence; a
+`continuation-handoff` records the new owner and limitation but keeps the token
+pending, so it never completes a run
+([run record](references/run-record.md#continuations)). A stage transition
+refuses while a settled report, an unregistered report file, or an old dispatch
+intent is unprocessed. Verifying or following up one of them drains it and needs
+no acknowledgement; record an `acknowledgement` reason only when unrelated work
+must advance while it waits on a real human stop.
+
 Run everything else to completion without asking. Ending your turn is how the user is notified, so end it only at a stop, at a blocker you cannot resolve, or with the final report.
 
 ## Host adapter
@@ -151,5 +163,13 @@ explicit. After acceptance, save only the selected items and verify their
 tracker references. Include the central tracker link when configured, any
 unsaved count and where those items are retained. A tracker entry does not
 turn an unmet acceptance gate into completed work.
+
+Close the run with the runtime's `complete` checkpoint: it refuses while a task,
+an Orca job, a native intent or a continuation is unresolved, or while no
+accepted reviewer seal covers the integration tree (plus QA's when the user
+selected QA). A partial run, a `leave` landing and an unresolved blocker are
+legitimate ends: record their own stage (`blocked` or `report`) instead of
+forcing `complete`, and name what remains open in the report. `ship` is a gate,
+not an end state for unfinished work.
 
 End with a short report: what changed, the evidence (tests, red check, review, QA), the commit, the PR, the merged commit for a direct repo, any dependency fallback used, and the outstanding-work references. After a run with scope changes, review loops beyond the first, or fallbacks, suggest `/deliver-retro` (or `/flyingnobita-deliver-retro`) in this session. This message is the user's notification that the work is done.

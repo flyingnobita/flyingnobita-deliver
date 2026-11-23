@@ -78,6 +78,12 @@ this delivery's immutable base SHA and approved brief/plan. Keep Mention
 findings for the PR. Gate: no must-fix findings remain, the reviewer examined
 the final result, and your green run follows the last commit.
 
+Register that final review as an `acceptance` task with the `reviewer` role
+(`purpose:"acceptance"` on its Orca packet) and seal it with `verify` against the
+integration tree, passing structured checks for that commit. Findings produced by
+an earlier review are `purpose:"findings"`: they inform the repair, they never
+seal shipping.
+
 ### Local preview
 
 Run this section only when the approved plan names a preview step. You run it,
@@ -99,6 +105,11 @@ the restore.
 
 Run when the user did not skip it. Read [qa.md](qa.md).
 
+Record the chosen target as `approved.qa` when you `approve`, or with a later
+`approve` before shipping. Register the QA role's work as an `acceptance` task
+with role `qa` (`purpose:"acceptance"` on its Orca packet) and seal it against
+the same integration tree; the reviewer's seal does not stand in for it.
+
 Gate: QA's before-and-after evidence shows the change works in the real environment, and the starting state is restored.
 
 A QA result that contradicts the brief (the bug does not reproduce, the fix exposes a new problem) is a scope change: stop, present the evidence and options with a recommendation, and resume with the user's decision through build and review.
@@ -116,4 +127,4 @@ not merely a native worker completion.
 4. Refill the frontier as tickets land.
 5. After the last ticket: one review of the whole integration branch against the spec, with all must-fix findings fixed by a single implementer role, then the plan's preview step when it names one, then QA on the integration branch.
 
-Gate: every ticket landed, the integration branch is green, the review has no must-fix finding, the preview's activation and restore receipts are recorded when the plan named one, and QA passed or was skipped.
+Gate: every ticket landed, the integration branch is green, the review has no must-fix finding, the preview's activation and restore receipts are recorded when the plan named one, and QA passed or was skipped. Record it with the stage's `checkpoint`, and close the run with the gated `complete` checkpoint once every task, native intent and continuation is resolved.

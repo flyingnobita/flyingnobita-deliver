@@ -69,7 +69,17 @@ For resource mutations use `operation-intent` before the native command and
 intent write. Record exact target, native request ID and argv where applicable;
 redact credentials. A lost result is an uncertain operation to reconcile, never
 permission for another fresh request. Orca's native `--retry-request` and
-`request-show` own replay/recovery; use their current guide and receipts.
+`request-show` own replay/recovery; use their current guide and receipts. Only a
+cleanup intent (`worktree-remove`, `workspace-close`, `worker-release`) may be
+closed as `operation-disposition` `retained` or `unavailable`; every other
+uncertain mutation blocks shipping until its result is observed.
+
+Native work blocks the same gates as a Herdr task: a ship or complete
+`checkpoint` refuses a job that is only intended, dispatched, or reported
+without independent verification. Record an observed rejection with
+`orca-rejected` to close that job. When you wait on a hosted check such as CI,
+open a `continuation-open` token with `kind:"hosted"` and its `gate`, and
+acknowledge it only from observed settlement; a handoff keeps it pending.
 
 ## Operations
 
@@ -132,6 +142,10 @@ All commands take JSON on stdin and include delivery `run_id` and optional
    recorded one), revalidated runtime ID as `host`
    and command/result `evidence` plus the contract's structured `verification`. A failed report, pending question, dirty tree
    or changed HEAD cannot pass. Gate status is distinct from native success.
+   The seal carries the packet's typed `purpose` and the tree of that commit; a
+   final review is `purpose:"acceptance"` on the `reviewer` profile, QA is
+   `purpose:"acceptance"` on the `qa` profile, and shipping needs the reviewer's
+   seal for the integration tree, plus QA's when `approved.qa` was selected.
 
 If native rejection occurred before any Dispatch existed, use `orca-rejected`
 instead of inventing a completion report: supply `job`, matching native run/task/

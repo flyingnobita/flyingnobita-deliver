@@ -40,6 +40,15 @@ dispatch, create a private run directory outside the workspaces,
 These replace `create`/`approve`, `report`, `rebased`, `verify` and
 `checkpoint`. Retain the directory after cleanup.
 
+Paseo has no runtime gate, so the run note carries the equivalent record. Append
+`continuation` entries with a unique id, `owner`, `next_observation`,
+`expected_event` and, for a worker wait, the ticket and agent, or, for a hosted
+gate, the gate itself. A handoff keeps that entry open with the new owner and the
+limitation; only an observed settlement closes it. Never claim a native wake-up
+without having observed one. A partial or `leave` run stays a legitimate end
+state; a completed delivery needs the review sealed on the final tree and QA's
+seal when QA ran.
+
 ## Operations
 
 | Operation | Paseo |
