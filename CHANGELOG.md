@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-24, 2026 - 03:49 PM +08 - Default Herdr planning and review to Pi with CommandCode Kimi K3.1 Pro and MiMo V2.6 Pro at high effort.
+
 - Nov-23, 2026 - 11:49 PM +08 - Gate delivery on final-tree acceptance, resolved work, and recorded continuation outcomes (DLV-33).
 - Nov-23, 2026 - 11:49 PM +08 - Let Herdr workers validate reports before finishing and seal reports after settlement (DLV-34).
 - Nov-23, 2026 - 11:49 PM +08 - Keep Kaneo-linked tickets in review after local landing so their issues stay open until publication.

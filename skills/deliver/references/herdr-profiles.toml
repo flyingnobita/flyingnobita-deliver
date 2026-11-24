@@ -1,5 +1,5 @@
 # Herdr default role profiles.
-# Planner and reviewer use OpenCode Go; the implementer uses CommandCode.
+# Pi workers use CommandCode.
 # QA runs Codex gpt-6.1-sol/medium in auto mode, set 2026-11-10.
 # Herdr defaults are independent after initialization. Availability needs a live check.
 # Other harnesses: omp takes model/thinking/approval-mode (effort and mode are
@@ -8,7 +8,7 @@
 # references/opencode-launch.md and adapters/herdr.md for the launch contract.
 [planner]
 harness = "pi"
-model = "opencode-go/kimi-k3.1-pro"
+model = "commandcode/moonshotai/Kimi-K3.1-Pro"
 effort = "high"
 mode = "default"
 
@@ -20,7 +20,7 @@ mode = "default"
 
 [reviewer]
 harness = "pi"
-model = "opencode-go/mimo-v2.6-pro"
+model = "commandcode/xiaomi/mimo-v2.6-pro"
 effort = "high"
 mode = "default"
 
