@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-25, 2026 - 11:27 PM +08 - Use Pi with CommandCode DeepSeek V4.1 Flash at high effort for every default Herdr delivery role.
+
 - Nov-24, 2026 - 03:49 PM +08 - Default Herdr planning and review to Pi with CommandCode Kimi K3.1 Pro and MiMo V2.6 Pro at high effort.
 
 - Nov-23, 2026 - 11:49 PM +08 - Gate delivery on final-tree acceptance, resolved work, and recorded continuation outcomes (DLV-33).
