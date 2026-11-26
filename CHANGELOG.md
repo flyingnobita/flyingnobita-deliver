@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-26, 2026 - 03:22 PM +08 - Default Herdr QA to agy with Gemini 4 Hydrogen at medium effort and permission prompts skipped, keeping Pi DeepSeek V4.1 Flash for planning, implementation and review.
+
 - Nov-25, 2026 - 11:27 PM +08 - Use Pi with CommandCode DeepSeek V4.1 Flash at high effort for every default Herdr delivery role.
 
 - Nov-24, 2026 - 03:49 PM +08 - Default Herdr planning and review to Pi with CommandCode Kimi K3.1 Pro and MiMo V2.6 Pro at high effort.
