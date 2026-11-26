@@ -1,24 +1,25 @@
-# Orca default role profiles. Set 2026-11-04; availability needs a live check.
+# Orca default role profiles. Set 2026-11-26; availability needs a live check.
 # A project or run role table replaces the matching default table whole.
 # Orca's worker-start has no per-role mode flag, so these tables hold no mode.
-# Requested modes: planner plan, reviewer and qa full-access. The host's launch
-# settings decide what is enforced; see adapters/orca.md.
+# Yolo comes from Orca's agentDefaultArgs: antigravity launches with
+# --dangerously-skip-permissions, pi has no permission flag and keeps native
+# approvals. See adapters/orca.md.
 [planner]
-harness = "claude"
-model = "claude-opus-5-5"
+harness = "antigravity"
+model = "gemini-4-hydrogen-high"
 effort = "high"
 
 [implementer]
 harness = "pi"
-model = "opencode-go/deepseek-v4.1-flash"
+model = "commandcode/deepseek/deepseek-v4.1-flash"
 effort = "high"
 
 [reviewer]
-harness = "codex"
-model = "gpt-6.1-sol"
-effort = "low"
+harness = "pi"
+model = "opencode/gemini-4-hydrogen"
+effort = "high"
 
 [qa]
-harness = "codex"
-model = "gpt-6.1-sol"
-effort = "low"
+harness = "antigravity"
+model = "gemini-4-hydrogen-medium"
+effort = "medium"

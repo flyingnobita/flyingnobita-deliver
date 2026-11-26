@@ -157,12 +157,12 @@ Other harnesses may require additional integration work.
 
 Each role except the orchestrator gets its own profile. For example:
 
-| Role        | Harness  | Model                             | Effort |
-| ----------- | -------- | --------------------------------- | ------ |
-| Planner     | `claude` | `claude-opus-5-5`                 | `high` |
-| Implementer | `pi`     | `opencode-go/deepseek-v4.1-flash` | `high` |
-| Reviewer    | `codex`  | `gpt-6.1-sol`                     | `low`  |
-| QA          | `codex`  | `gpt-6.1-sol`                     | `low`  |
+| Role        | Harness       | Model                                      | Effort   |
+| ----------- | ------------- | ------------------------------------------ | -------- |
+| Planner     | `antigravity` | `gemini-4-hydrogen-high`                   | `high`   |
+| Implementer | `pi`          | `commandcode/deepseek/deepseek-v4.1-flash` | `high`   |
+| Reviewer    | `pi`          | `opencode/gemini-4-hydrogen`               | `high`   |
+| QA          | `antigravity` | `gemini-4-hydrogen-medium`                 | `medium` |
 
 ## Skills
 
@@ -267,24 +267,24 @@ To set the roles to the profiles in the table above, add a `[hosts.orca.roles.<r
 
 ```toml
 [hosts.orca.roles.planner]
-harness = "claude"
-model = "claude-opus-5-5"
+harness = "antigravity"
+model = "gemini-4-hydrogen-high"
 effort = "high"
 
 [hosts.orca.roles.implementer]
 harness = "pi"
-model = "opencode-go/deepseek-v4.1-flash"
+model = "commandcode/deepseek/deepseek-v4.1-flash"
 effort = "high"
 
 [hosts.orca.roles.reviewer]
-harness = "codex"
-model = "gpt-6.1-sol"
-effort = "low"
+harness = "pi"
+model = "opencode/gemini-4-hydrogen"
+effort = "high"
 
 [hosts.orca.roles.qa]
-harness = "codex"
-model = "gpt-6.1-sol"
-effort = "low"
+harness = "antigravity"
+model = "gemini-4-hydrogen-medium"
+effort = "medium"
 ```
 
 `model` and `effort` are optional; leave them out to use Orca's defaults, but `effort` needs an explicit `model`. A role table you set replaces that role's [default](skills/deliver/references/orca-profiles.toml) whole.
