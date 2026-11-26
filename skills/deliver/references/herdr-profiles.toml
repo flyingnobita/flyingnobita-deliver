@@ -1,8 +1,8 @@
 # Herdr default role profiles.
-# Planner and QA run agy Gemini 4 Hydrogen (high and medium) with permission
-# prompts skipped. Implementer runs Pi with CommandCode DeepSeek Flash; reviewer
-# runs Pi with OpenCode Gemini 4 Hydrogen. Pi has no permission-mode flag, so it
-# stays on native approvals, set 2026-11-26.
+# Planner, reviewer and QA run agy Gemini 4 Hydrogen with permission prompts
+# skipped; reviewer matches QA. Implementer runs Pi with CommandCode DeepSeek
+# Flash. Pi has no permission-mode flag, so it stays on native approvals, set
+# 2026-11-26.
 # Herdr defaults are independent after initialization. Availability needs a live check.
 # Other harnesses: omp takes model/thinking/approval-mode (effort and mode are
 # native tokens); opencode binds an explicit native model/variant session, then
@@ -21,10 +21,10 @@ effort = "high"
 mode = "default"
 
 [reviewer]
-harness = "pi"
-model = "opencode/gemini-4-hydrogen"
-effort = "high"
-mode = "default"
+harness = "agy"
+model = "gemini-4-hydrogen-medium"
+effort = "medium"
+mode = "dangerously-skip-permissions"
 
 [qa]
 harness = "agy"
