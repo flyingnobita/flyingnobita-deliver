@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-26, 2026 - 03:31 PM +08 - Default the Herdr reviewer to the same agy Gemini 4 Hydrogen profile as QA, leaving planning and implementation on Pi DeepSeek V4.1 Flash.
+
 - Nov-26, 2026 - 03:22 PM +08 - Default Herdr QA to agy with Gemini 4 Hydrogen at medium effort and permission prompts skipped, keeping Pi DeepSeek V4.1 Flash for planning, implementation and review.
 
 - Nov-25, 2026 - 11:27 PM +08 - Use Pi with CommandCode DeepSeek V4.1 Flash at high effort for every default Herdr delivery role.
