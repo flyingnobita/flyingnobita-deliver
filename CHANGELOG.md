@@ -1,5 +1,7 @@
 # Changes
 
+- Nov-28, 2026 - 09:06 PM +08 - Document two resume gotchas: a Claude Code orchestrator restarted in the same Herdr pane keeps a stale Herdr `agent_session`, so prove the pane by process ancestry before recording the session change; and a `followup` attempt needs its own `profile-bind` before `verify`.
+
 - Nov-27, 2026 - 01:07 AM +08 - Default the Herdr reviewer to agy Gemini 4 Hydrogen at medium effort with permission prompts skipped, matching QA; review had been Pi with OpenCode Gemini 4 Hydrogen, which failed with a provider balance error mid-run.
 
 - Nov-26, 2026 - 10:17 PM +08 - Default Herdr and Orca planning to agy Gemini 4 Hydrogen at high effort with permission prompts skipped, review to Pi with OpenCode Gemini 4 Hydrogen at high effort, and QA to agy Gemini 4 Hydrogen at medium effort; implementation stays Pi CommandCode DeepSeek V4.1 Flash. Orca cannot set a per-role mode, so its yolo comes from the host's agent defaults.
