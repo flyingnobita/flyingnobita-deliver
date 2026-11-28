@@ -56,3 +56,9 @@ for per-attempt observations. An override on initial `attempt` or `profile-bind`
 also needs `requested_profile` plus `profile_authorization` when it differs from
 the saved request. An unconfigured request must be explicitly authorized before
 binding. Rebinding existing proof is refused; record a new attempt instead.
+
+Proof is per attempt, so an attempt created by `followup` needs its own
+`profile-bind` before `verify`, even on the same worker, session and profile;
+without it `verify` refuses with `matching effective profile proof required
+before verification` (observed 2026-11-28). Bind it from a fresh look at the
+worker's visible startup or footer line before prompting the follow-up.

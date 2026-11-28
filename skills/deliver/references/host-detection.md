@@ -52,6 +52,17 @@ Inspect only named identity fields; retain no credentials.
    session also needs the user's confirmation; see the adapter's `checkpoint`).
    A host change requires a new run, not a silent adapter switch.
 
+   Claude Code restarted in the same Herdr pane gets a new
+   `CLAUDE_CODE_SESSION_ID`, but `herdr pane current --current` keeps
+   reporting the old `agent_session` (Herdr 0.9.5, Claude Code 2.1.332,
+   2026-11-28), so the step 1 comparison fails. Treat it as broken context
+   until proven otherwise: walk the tool process's parent chain and require a
+   `claude --session-id <new ID>` ancestor whose environment carries the same
+   `HERDR_PANE_ID`, and the pane's recent output to show the current
+   conversation. Then record that as `caller_evidence` in the adapter's
+   `checkpoint` `session_change` with the user's confirmation. No fix that
+   makes Herdr refresh the session is known.
+
 Marker sets can be inherited by nested agents. If their live records cannot
 disambiguate the executing harness, report the failed checks and stop.
 
